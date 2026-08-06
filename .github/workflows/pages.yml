@@ -15,9 +15,6 @@ concurrency:
   group: github-pages
   cancel-in-progress: true
 
-env:
-  NODE_VERSION: "20"
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -25,11 +22,6 @@ jobs:
     steps:
       - name: Baixar repositório
         uses: actions/checkout@v4
-
-      - name: Preparar Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
 
       - name: Reconstruir pacote do site
         shell: bash
@@ -61,79 +53,39 @@ jobs:
           elif unzip -tq pacote-site.bin >/dev/null 2>&1; then
             unzip -q pacote-site.bin -d restaurado
           else
-            echo "O pacote reconstruído não é um arquivo TAR ou ZIP reconhecido."
+            echo "O pacote reconstruído não é um TAR ou ZIP reconhecido."
             file pacote-site.bin || true
             exit 1
           fi
 
-          echo "Conteúdo principal reconstruído:"
-          find restaurado -maxdepth 3 -type f | sort | head -200
-
-      - name: Instalar dependências e gerar versão estática
+      - name: Separar somente o frontend
         shell: bash
         run: |
           set -euo pipefail
 
-          PACKAGE_JSON="$(find restaurado -type f -name package.json -not -path '*/node_modules/*' | sort | head -n 1 || true)"
-
-          if [ -n "$PACKAGE_JSON" ]; then
-            APP_DIR="$(dirname "$PACKAGE_JSON")"
-            echo "Projeto Node localizado em: $APP_DIR"
-            cd "$APP_DIR"
-
-            if [ -f package-lock.json ]; then
-              npm ci --no-audit --no-fund
-            else
-              npm install --no-audit --no-fund
-            fi
-
-            if node -e "const p=require('./package.json'); process.exit(p.scripts && p.scripts.build ? 0 : 1)"; then
-              npm run build
-            else
-              echo "O projeto não possui script build; será usada a estrutura estática existente."
-            fi
-          else
-            echo "Nenhum package.json encontrado; tratando o conteúdo como site estático."
+          APP_INDEX="$(find restaurado -type f -path '*/app/index.html' | sort | head -n 1 || true)"
+          if [ -z "$APP_INDEX" ]; then
+            APP_INDEX="$(find restaurado -type f -name index.html -not -path '*/node_modules/*' | sort | head -n 1 || true)"
           fi
-
-      - name: Preparar pasta de publicação
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf _site
-          mkdir -p _site
-
-          PUBLICAR=""
-
-          while IFS= read -r CANDIDATO; do
-            if [ -f "$CANDIDATO/index.html" ]; then
-              PUBLICAR="$CANDIDATO"
-              break
-            fi
-          done < <(
-            find restaurado -type d \( \
-              -name dist -o \
-              -name build -o \
-              -name out -o \
-              -name public \
-            \) | sort
-          )
-
-          if [ -z "$PUBLICAR" ]; then
-            INDEX="$(find restaurado -type f -name index.html -not -path '*/node_modules/*' | sort | head -n 1 || true)"
-            if [ -n "$INDEX" ]; then
-              PUBLICAR="$(dirname "$INDEX")"
-            fi
-          fi
-
-          if [ -z "$PUBLICAR" ]; then
+          if [ -z "$APP_INDEX" ]; then
             echo "Não foi localizado um index.html publicável."
             exit 1
           fi
 
-          echo "Diretório publicado: $PUBLICAR"
-          cp -a "$PUBLICAR"/. _site/
-          test -f _site/index.html
+          APP_DIR="$(dirname "$APP_INDEX")"
+          echo "Frontend localizado em: $APP_DIR"
+
+          rm -rf _site
+          mkdir -p _site
+          cp -a "$APP_DIR"/. _site/
+
+          rm -f \
+            _site/server.js \
+            _site/rfq-server-service.js \
+            _site/workspace-rfq-client.js \
+            _site/docker-compose.yml \
+            _site/start-conutway-br-erp.sh \
+            _site/README.md
 
           rm -rf \
             _site/.git \
@@ -159,77 +111,22 @@ jobs:
 
           touch _site/.nojekyll
 
-      - name: Ajustar caminhos para o subdiretório do Pages
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import re
-          import shutil
+      - name: Ativar modo local compatível com Pages
+        run: python3 .github/scripts/prepare_pages.py _site
 
-          root = Path('_site')
-          base = '/conutway/'
-          text_extensions = {
-              '.html', '.htm', '.css', '.js', '.mjs', '.json',
-              '.webmanifest', '.xml', '.svg', '.txt'
-          }
-
-          def patch(text: str) -> str:
-              replacements = {
-                  'src="/assets/': f'src="{base}assets/',
-                  "src='/assets/": f"src='{base}assets/",
-                  'href="/assets/': f'href="{base}assets/',
-                  "href='/assets/": f"href='{base}assets/",
-                  'url(/assets/': f'url({base}assets/',
-                  'src="/static/': f'src="{base}static/',
-                  "src='/static/": f"src='{base}static/",
-                  'href="/static/': f'href="{base}static/',
-                  "href='/static/": f"href='{base}static/",
-                  'url(/static/': f'url({base}static/',
-                  'href="/favicon': f'href="{base}favicon',
-                  "href='/favicon": f"href='{base}favicon",
-                  'href="/manifest': f'href="{base}manifest',
-                  "href='/manifest": f"href='{base}manifest",
-              }
-              for old, new in replacements.items():
-                  text = text.replace(old, new)
-              return text
-
-          for path in root.rglob('*'):
-              if not path.is_file() or path.suffix.lower() not in text_extensions:
-                  continue
-              try:
-                  original = path.read_text(encoding='utf-8')
-              except UnicodeDecodeError:
-                  continue
-              changed = patch(original)
-              if path.name in {'manifest.json', 'site.webmanifest', 'manifest.webmanifest'}:
-                  changed = re.sub(r'("start_url"\s*:\s*")/("?)', rf'\1{base}\2', changed)
-                  changed = re.sub(r'("scope"\s*:\s*")/("?)', rf'\1{base}\2', changed)
-              if changed != original:
-                  path.write_text(changed, encoding='utf-8')
-
-          index = root / 'index.html'
-          html = index.read_text(encoding='utf-8')
-          if '<base ' not in html.lower():
-              html = re.sub(
-                  r'(<head(?:\s[^>]*)?>)',
-                  rf'\1\n    <base href="{base}">',
-                  html,
-                  count=1,
-                  flags=re.IGNORECASE,
-              )
-              index.write_text(html, encoding='utf-8')
-
-          shutil.copy2(index, root / '404.html')
-          PY
-
-      - name: Validar conteúdo publicado
+      - name: Validar publicação
         shell: bash
         run: |
           set -euo pipefail
           test -s _site/index.html
           test -s _site/404.html
+          test -s _site/app.js
+          test -s _site/styles.css
+          grep -q 'const serverStorageAllowed = () => false;' _site/app.js
+          grep -q '<base href="/conutway/">' _site/index.html
+          node --check _site/app.js
+          node --check _site/storage.js
+          node --check _site/permissions.js
           echo "Arquivos publicados: $(find _site -type f | wc -l)"
           echo "Tamanho total: $(du -sh _site | cut -f1)"
 
