@@ -1,0 +1,259 @@
+name: Publicar no GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            **/package-lock.json
+
+      - name: Reconstruir pacote do site
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t PARTES < <(
+            find .bootstrap -maxdepth 1 -type f \
+              -regextype posix-extended \
+              -regex '.*/part-[0-9]{2}' \
+              -print | sort -V
+          )
+
+          if [ "${#PARTES[@]}" -eq 0 ]; then
+            echo "Nenhuma parte válida foi encontrada em .bootstrap."
+            exit 1
+          fi
+
+          echo "Partes encontradas: ${#PARTES[@]}"
+          cat "${PARTES[@]}" | tr -d '\r\n\t ' | base64 --decode > pacote-site.xz
+          xz -t pacote-site.xz
+          xz -dc pacote-site.xz > pacote-site.bin
+
+          rm -rf restaurado
+          mkdir -p restaurado
+
+          if tar -tf pacote-site.bin >/dev/null 2>&1; then
+            tar -xf pacote-site.bin -C restaurado
+          elif unzip -tq pacote-site.bin >/dev/null 2>&1; then
+            unzip -q pacote-site.bin -d restaurado
+          else
+            echo "O pacote reconstruído não é um arquivo TAR ou ZIP reconhecido."
+            file pacote-site.bin || true
+            exit 1
+          fi
+
+          echo "Conteúdo principal reconstruído:"
+          find restaurado -maxdepth 3 -type f | sort | head -200
+
+      - name: Instalar dependências e gerar versão estática
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PACKAGE_JSON="$(find restaurado -type f -name package.json -not -path '*/node_modules/*' | sort | head -n 1 || true)"
+
+          if [ -n "$PACKAGE_JSON" ]; then
+            APP_DIR="$(dirname "$PACKAGE_JSON")"
+            echo "Projeto Node localizado em: $APP_DIR"
+            cd "$APP_DIR"
+
+            if [ -f package-lock.json ]; then
+              npm ci --no-audit --no-fund
+            else
+              npm install --no-audit --no-fund
+            fi
+
+            if node -e "const p=require('./package.json'); process.exit(p.scripts && p.scripts.build ? 0 : 1)"; then
+              npm run build
+            else
+              echo "O projeto não possui script build; será usada a estrutura estática existente."
+            fi
+          else
+            echo "Nenhum package.json encontrado; tratando o conteúdo como site estático."
+          fi
+
+      - name: Preparar pasta de publicação
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+
+          PUBLICAR=""
+
+          while IFS= read -r CANDIDATO; do
+            if [ -f "$CANDIDATO/index.html" ]; then
+              PUBLICAR="$CANDIDATO"
+              break
+            fi
+          done < <(
+            find restaurado -type d \( \
+              -name dist -o \
+              -name build -o \
+              -name out -o \
+              -name public \
+            \) | sort
+          )
+
+          if [ -z "$PUBLICAR" ]; then
+            INDEX="$(find restaurado -type f -name index.html -not -path '*/node_modules/*' | sort | head -n 1 || true)"
+            if [ -n "$INDEX" ]; then
+              PUBLICAR="$(dirname "$INDEX")"
+            fi
+          fi
+
+          if [ -z "$PUBLICAR" ]; then
+            echo "Não foi localizado um index.html publicável."
+            exit 1
+          fi
+
+          echo "Diretório publicado: $PUBLICAR"
+          cp -a "$PUBLICAR"/. _site/
+          test -f _site/index.html
+
+          rm -rf \
+            _site/.git \
+            _site/.github \
+            _site/.bootstrap \
+            _site/node_modules \
+            _site/data \
+            _site/secure \
+            _site/uploads \
+            _site/exports \
+            _site/backup \
+            _site/deployment
+
+          find _site -type f \( \
+            -name '.env' -o \
+            -name '.env.*' -o \
+            -name '*.log' -o \
+            -name '*.sql' -o \
+            -name '*.sqlite' -o \
+            -name '*.sqlite3' -o \
+            -name '*.db' \
+          \) -delete
+
+          touch _site/.nojekyll
+
+      - name: Ajustar caminhos para o subdiretório do Pages
+        shell: bash
+        env:
+          REPOSITORY_NAME: conutway
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import shutil
+
+          root = Path('_site')
+          base = '/conutway/'
+          text_extensions = {
+              '.html', '.htm', '.css', '.js', '.mjs', '.json',
+              '.webmanifest', '.xml', '.svg', '.txt'
+          }
+
+          def patch(text: str) -> str:
+              replacements = {
+                  'src="/assets/': f'src="{base}assets/',
+                  "src='/assets/": f"src='{base}assets/",
+                  'href="/assets/': f'href="{base}assets/',
+                  "href='/assets/": f"href='{base}assets/",
+                  'url(/assets/': f'url({base}assets/',
+                  'src="/static/': f'src="{base}static/',
+                  "src='/static/": f"src='{base}static/",
+                  'href="/static/': f'href="{base}static/',
+                  "href='/static/": f"href='{base}static/",
+                  'url(/static/': f'url({base}static/',
+                  'href="/favicon': f'href="{base}favicon',
+                  "href='/favicon": f"href='{base}favicon",
+                  'href="/manifest': f'href="{base}manifest',
+                  "href='/manifest": f"href='{base}manifest",
+              }
+              for old, new in replacements.items():
+                  text = text.replace(old, new)
+              return text
+
+          for path in root.rglob('*'):
+              if not path.is_file() or path.suffix.lower() not in text_extensions:
+                  continue
+              try:
+                  original = path.read_text(encoding='utf-8')
+              except UnicodeDecodeError:
+                  continue
+              changed = patch(original)
+              if path.name in {'manifest.json', 'site.webmanifest', 'manifest.webmanifest'}:
+                  changed = re.sub(r'("start_url"\s*:\s*")/("?)', rf'\1{base}\2', changed)
+                  changed = re.sub(r'("scope"\s*:\s*")/("?)', rf'\1{base}\2', changed)
+              if changed != original:
+                  path.write_text(changed, encoding='utf-8')
+
+          index = root / 'index.html'
+          html = index.read_text(encoding='utf-8')
+          if '<base ' not in html.lower():
+              html = re.sub(
+                  r'(<head(?:\s[^>]*)?>)',
+                  rf'\1\n    <base href="{base}">',
+                  html,
+                  count=1,
+                  flags=re.IGNORECASE,
+              )
+              index.write_text(html, encoding='utf-8')
+
+          shutil.copy2(index, root / '404.html')
+          PY
+
+      - name: Validar conteúdo publicado
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s _site/index.html
+          test -s _site/404.html
+          echo "Arquivos publicados: $(find _site -type f | wc -l)"
+          echo "Tamanho total: $(du -sh _site | cut -f1)"
+
+      - name: Configurar GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Enviar artefato do Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Publicar no GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
