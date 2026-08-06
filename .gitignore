@@ -1,0 +1,19 @@
+# Runtime and private data
+/data/
+/secure/
+/uploads/
+/exports/
+/backup/
+/deployment/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Dependencies and temporary files
+node_modules/
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
