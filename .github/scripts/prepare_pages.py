@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+from pathlib import Path
+import re
+import shutil
+import sys
+
+
+def replace_once(text: str, old: str, new: str, label: str) -> str:
+    if old not in text:
+        raise RuntimeError(f"Trecho esperado não encontrado ({label}).")
+    return text.replace(old, new, 1)
+
+
+def main() -> int:
+    root = Path(sys.argv[1] if len(sys.argv) > 1 else "_site")
+    base = "/conutway/"
+    app_path = root / "app.js"
+    index_path = root / "index.html"
+    style_path = root / "styles.css"
+
+    for required in (app_path, index_path, style_path):
+        if not required.is_file():
+            raise FileNotFoundError(f"Arquivo obrigatório não encontrado: {required}")
+
+    app = app_path.read_text(encoding="utf-8")
+    app = replace_once(
+        app,
+        'const serverStorageAllowed = () => ["http:", "https:"].includes(window.location.protocol);',
+        "const serverStorageAllowed = () => false;",
+        "modo de armazenamento",
+    )
+    app = replace_once(
+        app,
+        'currentUser: { id: "", username: "", name: "", role: "member", disabled: false, note: "", permissions: [] },',
+        'currentUser: { id: "pages-local", username: "local", name: "Modo local", role: "member", disabled: false, note: "GitHub Pages", permissions: ["all"] },',
+        "usuário local",
+    )
+    app = replace_once(
+        app,
+        'function canCurrentUserAccessModule(moduleName = "") {\n  if (window.BrErpPermissions?.canAccessModule) return window.BrErpPermissions.canAccessModule(currentAuthUser(), moduleName);',
+        'function canCurrentUserAccessModule(moduleName = "") {\n  if (["documents", "internalRfqs"].includes(moduleName)) return false;\n  if (window.BrErpPermissions?.canAccessModule) return window.BrErpPermissions.canAccessModule(currentAuthUser(), moduleName);',
+        "módulos compatíveis",
+    )
+    app = replace_once(
+        app,
+        "if (!productId) return true;\n  try {\n    const response = await fetch(`/api/products/${encodeURIComponent(productId)}/sync`, {",
+        "if (!productId || !serverStorageAllowed()) return true;\n  try {\n    const response = await fetch(`/api/products/${encodeURIComponent(productId)}/sync`, {",
+        "sincronização de produto",
+    )
+
+    seed_anchor = "  for (const store of STORES) loaded[store] = await api.all(store);\n"
+    seed_lines = [
+        "  for (const store of STORES) loaded[store] = await api.all(store);",
+        "",
+        "  // No GitHub Pages, cada navegador usa seu próprio IndexedDB.",
+        "  // Na primeira abertura, inicializamos os dados demonstrativos já existentes no ERP.",
+        "  if (!STORES.some((store) => Array.isArray(loaded[store]) && loaded[store].length > 0)) {",
+        "    for (const store of STORES) {",
+        "      const initialRecords = Array.isArray(seedData[store])",
+        "        ? seedData[store].map((record) => normalizeStablePersistedRecord(record, store))",
+        "        : [];",
+        "      if (!initialRecords.length) continue;",
+        "      await indexedDbApi.replace(store, initialRecords);",
+        "      loaded[store] = await indexedDbApi.all(store);",
+        "    }",
+        "  }",
+        "",
+    ]
+    app = replace_once(app, seed_anchor, "\n".join(seed_lines), "dados iniciais")
+    app_path.write_text(app, encoding="utf-8")
+
+    html = index_path.read_text(encoding="utf-8")
+    if "<base " not in html.lower():
+        html = re.sub(
+            r"(<head(?:\s[^>]*)?>)",
+            rf'\1\n    <base href="{base}">',
+            html,
+            count=1,
+            flags=re.IGNORECASE,
+        )
+
+    banner = (
+        '<div class="pages-mode-banner" role="status">'
+        '<strong>Modo local</strong>'
+        '<span>Os dados ficam salvos somente neste navegador. '
+        'Recursos que exigem servidor estão temporariamente ocultos.</span>'
+        "</div>"
+    )
+    html = re.sub(
+        r"(<body(?:\s[^>]*)?>)",
+        rf"\1\n    {banner}",
+        html,
+        count=1,
+        flags=re.IGNORECASE,
+    )
+    index_path.write_text(html, encoding="utf-8")
+
+    login = (
+        '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        '<meta http-equiv="refresh" content="0; url=./">'
+        '<title>CONUTWAY TEZA ERP</title>'
+        "<script>window.location.replace('./');</script>"
+        '</head><body><p>Redirecionando para o ERP...</p></body></html>'
+    )
+    (root / "login.html").write_text(login, encoding="utf-8")
+
+    css = """
+
+.pages-mode-banner {
+  position: sticky;
+  top: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .65rem;
+  padding: .55rem 1rem;
+  border-bottom: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1e3a5f;
+  font-size: .82rem;
+  text-align: center;
+}
+.pages-mode-banner strong { color: #0f4c81; }
+@media (max-width: 720px) {
+  .pages-mode-banner { align-items: flex-start; flex-direction: column; gap: .15rem; }
+}
+"""
+    with style_path.open("a", encoding="utf-8") as handle:
+        handle.write(css)
+
+    text_extensions = {
+        ".html", ".htm", ".css", ".js", ".mjs", ".json",
+        ".webmanifest", ".xml", ".svg", ".txt",
+    }
+    path_replacements = {
+        'src="/assets/': f'src="{base}assets/',
+        "src='/assets/": f"src='{base}assets/",
+        'href="/assets/': f'href="{base}assets/',
+        "href='/assets/": f"href='{base}assets/",
+        "url(/assets/": f"url({base}assets/",
+        'src="/static/': f'src="{base}static/',
+        "src='/static/": f"src='{base}static/",
+        'href="/static/': f'href="{base}static/',
+        "href='/static/": f"href='{base}static/",
+        "url(/static/": f"url({base}static/",
+        'href="/favicon': f'href="{base}favicon',
+        "href='/favicon": f"href='{base}favicon",
+        'href="/manifest': f'href="{base}manifest',
+        "href='/manifest": f"href='{base}manifest",
+    }
+
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in text_extensions:
+            continue
+        try:
+            original = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            continue
+        changed = original
+        for old, new in path_replacements.items():
+            changed = changed.replace(old, new)
+        if path.name in {"manifest.json", "site.webmanifest", "manifest.webmanifest"}:
+            changed = re.sub(r'("start_url"\s*:\s*")/("?)', rf"\1{base}\2", changed)
+            changed = re.sub(r'("scope"\s*:\s*")/("?)', rf"\1{base}\2", changed)
+        if changed != original:
+            path.write_text(changed, encoding="utf-8")
+
+    shutil.copy2(index_path, root / "404.html")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
