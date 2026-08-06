@@ -30,9 +30,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: |
-            **/package-lock.json
 
       - name: Reconstruir pacote do site
         shell: bash
@@ -164,8 +161,6 @@ jobs:
 
       - name: Ajustar caminhos para o subdiretório do Pages
         shell: bash
-        env:
-          REPOSITORY_NAME: conutway
         run: |
           python3 - <<'PY'
           from pathlib import Path
