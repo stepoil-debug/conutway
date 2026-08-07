@@ -1,10 +1,11 @@
-# Reexecução após normalização do incidente do GitHub Actions em 07/08/2026
-name: Publicar no GitHub Pages
+name: Publicar CONUTWAY no GitHub Pages
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+    paths:
+      - 'conutway-pages-ready.zip'
+      - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -19,103 +20,39 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.package.outputs.ready }}
 
     steps:
       - name: Baixar repositório
         uses: actions/checkout@v4
 
-      - name: Reconstruir pacote do site
+      - name: Verificar pacote do ERP
+        id: package
+        shell: bash
+        run: |
+          if [ ! -s conutway-pages-ready.zip ]; then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo 'Pacote estático ainda não está no repositório. Aguardando conutway-pages-ready.zip.'
+            exit 0
+          fi
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
+
+      - name: Extrair site
+        if: steps.package.outputs.ready == 'true'
         shell: bash
         run: |
           set -euo pipefail
-
-          mapfile -t PARTES < <(
-            find .bootstrap -maxdepth 1 -type f \
-              -regextype posix-extended \
-              -regex '.*/part-[0-9]{2}' \
-              -print | sort -V
-          )
-
-          if [ "${#PARTES[@]}" -eq 0 ]; then
-            echo "Nenhuma parte válida foi encontrada em .bootstrap."
-            exit 1
-          fi
-
-          echo "Partes encontradas: ${#PARTES[@]}"
-          cat "${PARTES[@]}" | tr -d '\r\n\t ' | base64 --decode > pacote-site.xz
-          xz -t pacote-site.xz
-          xz -dc pacote-site.xz > pacote-site.bin
-
-          rm -rf restaurado
-          mkdir -p restaurado
-
-          if tar -tf pacote-site.bin >/dev/null 2>&1; then
-            tar -xf pacote-site.bin -C restaurado
-          elif unzip -tq pacote-site.bin >/dev/null 2>&1; then
-            unzip -q pacote-site.bin -d restaurado
-          else
-            echo "O pacote reconstruído não é um TAR ou ZIP reconhecido."
-            file pacote-site.bin || true
-            exit 1
-          fi
-
-      - name: Separar somente o frontend
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          APP_INDEX="$(find restaurado -type f -path '*/app/index.html' | sort | head -n 1 || true)"
-          if [ -z "$APP_INDEX" ]; then
-            APP_INDEX="$(find restaurado -type f -name index.html -not -path '*/node_modules/*' | sort | head -n 1 || true)"
-          fi
-          if [ -z "$APP_INDEX" ]; then
-            echo "Não foi localizado um index.html publicável."
-            exit 1
-          fi
-
-          APP_DIR="$(dirname "$APP_INDEX")"
-          echo "Frontend localizado em: $APP_DIR"
-
           rm -rf _site
           mkdir -p _site
-          cp -a "$APP_DIR"/. _site/
-
-          rm -f \
-            _site/server.js \
-            _site/rfq-server-service.js \
-            _site/workspace-rfq-client.js \
-            _site/docker-compose.yml \
-            _site/start-conutway-br-erp.sh \
-            _site/README.md
-
-          rm -rf \
-            _site/.git \
-            _site/.github \
-            _site/.bootstrap \
-            _site/node_modules \
-            _site/data \
-            _site/secure \
-            _site/uploads \
-            _site/exports \
-            _site/backup \
-            _site/deployment
-
-          find _site -type f \( \
-            -name '.env' -o \
-            -name '.env.*' -o \
-            -name '*.log' -o \
-            -name '*.sql' -o \
-            -name '*.sqlite' -o \
-            -name '*.sqlite3' -o \
-            -name '*.db' \
-          \) -delete
-
+          unzip -q conutway-pages-ready.zip -d _site
           touch _site/.nojekyll
+          if [ ! -s _site/404.html ]; then
+            cp _site/index.html _site/404.html
+          fi
 
-      - name: Ativar modo local compatível com Pages
-        run: python3 .github/scripts/prepare_pages.py _site
-
-      - name: Validar publicação
+      - name: Validar site
+        if: steps.package.outputs.ready == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -123,23 +60,25 @@ jobs:
           test -s _site/404.html
           test -s _site/app.js
           test -s _site/styles.css
-          grep -q 'const serverStorageAllowed = () => false;' _site/app.js
           grep -q '<base href="/conutway/">' _site/index.html
+          grep -q 'const serverStorageAllowed = () => false;' _site/app.js
           node --check _site/app.js
           node --check _site/storage.js
           node --check _site/permissions.js
-          echo "Arquivos publicados: $(find _site -type f | wc -l)"
-          echo "Tamanho total: $(du -sh _site | cut -f1)"
+          echo "Arquivos do site: $(find _site -type f | wc -l)"
 
       - name: Configurar GitHub Pages
+        if: steps.package.outputs.ready == 'true'
         uses: actions/configure-pages@v5
 
-      - name: Enviar artefato do Pages
+      - name: Enviar artefato
+        if: steps.package.outputs.ready == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
 
   deploy:
+    if: needs.build.outputs.ready == 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
