@@ -1,0 +1,1 @@
+Pacote estático do GitHub Pages é gerado para publicação automática.
