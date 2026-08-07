@@ -1,3 +1,4 @@
+# Reexecução após normalização do incidente do GitHub Actions em 07/08/2026
 name: Publicar no GitHub Pages
 
 on:
