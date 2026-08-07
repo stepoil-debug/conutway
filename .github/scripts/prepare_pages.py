@@ -8,6 +8,10 @@ import sys
 
 
 def replace_once(text: str, old: str, new: str, label: str) -> str:
+    # O pacote pode já conter parte das adaptações do Pages.
+    # Nesse caso, não devemos tratar a alteração já aplicada como erro.
+    if new in text:
+        return text
     if old not in text:
         raise RuntimeError(f"Trecho esperado não encontrado ({label}).")
     return text.replace(old, new, 1)
@@ -68,7 +72,8 @@ def main() -> int:
         "  }",
         "",
     ]
-    app = replace_once(app, seed_anchor, "\n".join(seed_lines), "dados iniciais")
+    seed_block = "\n".join(seed_lines)
+    app = replace_once(app, seed_anchor, seed_block, "dados iniciais")
     app_path.write_text(app, encoding="utf-8")
 
     html = index_path.read_text(encoding="utf-8")
@@ -88,13 +93,14 @@ def main() -> int:
         'Recursos que exigem servidor estão temporariamente ocultos.</span>'
         "</div>"
     )
-    html = re.sub(
-        r"(<body(?:\s[^>]*)?>)",
-        rf"\1\n    {banner}",
-        html,
-        count=1,
-        flags=re.IGNORECASE,
-    )
+    if "pages-mode-banner" not in html:
+        html = re.sub(
+            r"(<body(?:\s[^>]*)?>)",
+            rf"\1\n    {banner}",
+            html,
+            count=1,
+            flags=re.IGNORECASE,
+        )
     index_path.write_text(html, encoding="utf-8")
 
     login = (
@@ -129,8 +135,9 @@ def main() -> int:
   .pages-mode-banner { align-items: flex-start; flex-direction: column; gap: .15rem; }
 }
 """
-    with style_path.open("a", encoding="utf-8") as handle:
-        handle.write(css)
+    style_text = style_path.read_text(encoding="utf-8")
+    if ".pages-mode-banner {" not in style_text:
+        style_path.write_text(style_text + css, encoding="utf-8")
 
     text_extensions = {
         ".html", ".htm", ".css", ".js", ".mjs", ".json",
