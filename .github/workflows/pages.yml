@@ -7,6 +7,7 @@ on:
       - '.bootstrap/**'
       - 'conutway-pages-ready.b64'
       - '.github/pages/**'
+      - '.login-assets/target-v2/**'
       - '.github/scripts/recover_pages.py'
       - '.github/scripts/prepare_pages.py'
       - '.github/scripts/pages-login-audit.mjs'
@@ -44,7 +45,7 @@ jobs:
       - name: Preparar modo GitHub Pages
         run: python3 .github/scripts/prepare_pages.py _site
 
-      - name: Instalar hero e logo preservados do login
+      - name: Montar hero íntegro e logo do login
         shell: bash
         run: |
           set -euo pipefail
@@ -52,19 +53,26 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import base64, hashlib, subprocess
-          raw = subprocess.check_output([
-              'git','show','origin/backup/login-premium-failed-20260810:.github/pages/conutway-brazil-china-hero-v2.webp.b64'
-          ])
-          hero = base64.b64decode(raw, validate=False)
-          assert len(hero) == 105456, f'hero com tamanho inesperado: {len(hero)}'
+
+          parts = [
+              Path(f'.login-assets/target-v2/hero.part{i:02d}.b64')
+              for i in range(10)
+          ]
+          raw = ''.join(p.read_text(encoding='utf-8').strip() for p in parts)
+          hero = base64.b64decode(raw, validate=True)
+          digest = hashlib.sha256(hero).hexdigest()
+          assert len(hero) == 73684, f'hero com tamanho inesperado: {len(hero)}'
+          assert digest == '1e650b3040f2311192271a07e2247d774ca905039bc1fed6a2008c95e9a3048a', digest
           assert hero[:4] == b'RIFF' and hero[8:12] == b'WEBP', 'hero não é WebP válido'
           Path('_site/assets/conutway-brazil-china-hero.webp').write_bytes(hero)
+
           logo = subprocess.check_output([
               'git','show','origin/backup/login-premium-failed-20260810:.github/pages/conutway-teza-logo-v2.svg'
           ]).decode('utf-8')
           assert '<svg' in logo and 'CONUTWAY' in logo and 'TEZA' in logo
           Path('_site/assets/conutway-teza-logo-v2.svg').write_text(logo, encoding='utf-8')
-          print('hero_ok bytes=', len(hero), 'sha256=', hashlib.sha256(hero).hexdigest())
+
+          print('hero_ok bytes=', len(hero), 'sha256=', digest)
           print('logo_ok chars=', len(logo))
           PY
 
