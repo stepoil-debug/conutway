@@ -4,7 +4,10 @@ on:
   push:
     branches: [main]
     paths:
+      - '.bootstrap/**'
       - 'conutway-pages-ready.b64'
+      - '.github/scripts/recover_pages.py'
+      - '.github/scripts/prepare_pages.py'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -24,41 +27,35 @@ jobs:
     steps:
       - name: Baixar repositório
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Reconstruir pacote estático
+      - name: Recuperar segmentos preservados
         shell: bash
         run: |
           set -euo pipefail
-          test -s conutway-pages-ready.b64
-          base64 --decode conutway-pages-ready.b64 > /tmp/conutway-pages-ready.zip
-          unzip -tq /tmp/conutway-pages-ready.zip
+          git fetch --no-tags origin refs/heads/fix/pages-bundle-integrity:refs/remotes/origin/fix/pages-bundle-integrity
 
-      - name: Extrair site
+      - name: Reconstruir frontend completo
+        run: python3 .github/scripts/recover_pages.py _site
+
+      - name: Preparar modo GitHub Pages
+        run: python3 .github/scripts/prepare_pages.py _site
+
+      - name: Validar site final
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf _site
-          mkdir -p _site
-          unzip -q /tmp/conutway-pages-ready.zip -d _site
-          touch _site/.nojekyll
-          if [ ! -s _site/404.html ]; then
-            cp _site/index.html _site/404.html
-          fi
-
-      - name: Validar site
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -s _site/index.html
-          test -s _site/404.html
-          test -s _site/app.js
-          test -s _site/styles.css
+          for f in index.html 404.html app.js styles.css storage.js permissions.js; do
+            test -s "_site/$f"
+          done
           grep -q '<base href="/conutway/">' _site/index.html
           grep -q 'const serverStorageAllowed = () => false;' _site/app.js
           node --check _site/app.js
           node --check _site/storage.js
           node --check _site/permissions.js
-          echo "Arquivos do site: $(find _site -type f | wc -l)"
+          echo "Arquivos finais: $(find _site -type f | wc -l)"
+          du -sh _site
 
       - name: Configurar GitHub Pages
         uses: actions/configure-pages@v5
