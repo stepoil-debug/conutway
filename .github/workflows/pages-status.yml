@@ -1,0 +1,30 @@
+name: Diagnosticar configuração do GitHub Pages
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: read
+
+jobs:
+  pages-status:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consultar API do GitHub Pages
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          URL="https://api.github.com/repos/${GITHUB_REPOSITORY}/pages"
+          CODE=$(curl -sS -o /tmp/pages.json -w '%{http_code}' \
+            -H 'Accept: application/vnd.github+json' \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H 'X-GitHub-Api-Version: 2026-03-10' \
+            "$URL")
+          echo "PAGES_HTTP_STATUS=$CODE"
+          cat /tmp/pages.json
+          echo
+          exit 0
