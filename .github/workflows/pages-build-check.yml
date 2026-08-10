@@ -12,7 +12,6 @@ jobs:
   build-and-browser:
     runs-on: ubuntu-latest
     timeout-minutes: 12
-
     steps:
       - name: Baixar repositório
         uses: actions/checkout@v4
@@ -24,7 +23,6 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags origin refs/heads/fix/pages-bundle-integrity:refs/remotes/origin/fix/pages-bundle-integrity
-          git fetch --no-tags origin refs/heads/backup/login-premium-failed-20260810:refs/remotes/origin/backup/login-premium-failed-20260810
 
       - name: Reconstruir frontend
         run: python3 .github/scripts/recover_pages.py _site
@@ -32,29 +30,23 @@ jobs:
       - name: Preparar GitHub Pages
         run: python3 .github/scripts/prepare_pages.py _site
 
-      - name: Instalar assets premium do login
+      - name: Copiar assets binários premium
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p _site/assets
-          git show origin/backup/login-premium-failed-20260810:.github/pages/conutway-brazil-china-hero-v2.svg > /tmp/conutway-hero-source.svg
-          git show origin/backup/login-premium-failed-20260810:.github/pages/conutway-teza-logo-v2.svg > _site/assets/conutway-teza-logo-v2.svg
+          cp .github/pages/conutway-brazil-china-hero-v7.webp _site/assets/conutway-brazil-china-hero-v7.webp
+          cp .github/pages/conutway-teza-logo-v7.webp _site/assets/conutway-teza-logo-v7.webp
           python3 - <<'PY'
           from pathlib import Path
-          import base64, re
-          text = Path('/tmp/conutway-hero-source.svg').read_text(encoding='utf-8')
-          match = re.search(r'data:image/webp;base64,([^\"]+)', text, flags=re.S)
-          if not match:
-              raise SystemExit('Hero WebP embutido não encontrado no SVG preservado')
-          encoded = re.sub(r'\s+', '', match.group(1))
-          hero = base64.b64decode(encoded, validate=True)
-          if len(hero) <= 20000 or hero[:4] != b'RIFF' or hero[8:12] != b'WEBP':
-              raise SystemExit(f'Hero extraído inválido: {len(hero)} bytes')
-          Path('_site/assets/conutway-brazil-china-hero.webp').write_bytes(hero)
-          logo = Path('_site/assets/conutway-teza-logo-v2.svg').read_text(encoding='utf-8')
-          if '<svg' not in logo or 'CONUTWAY' not in logo:
-              raise SystemExit('Logo SVG inválida')
-          print(f'hero_bytes={len(hero)} logo_chars={len(logo)}')
+          for path, minimum in [
+              ('_site/assets/conutway-brazil-china-hero-v7.webp', 15000),
+              ('_site/assets/conutway-teza-logo-v7.webp', 2000),
+          ]:
+              b = Path(path).read_bytes()
+              assert len(b) > minimum, (path, len(b))
+              assert b[:4] == b'RIFF' and b[8:12] == b'WEBP', path
+              print(path, len(b), 'bytes')
           PY
 
       - name: Validar arquivos finais
@@ -62,15 +54,15 @@ jobs:
         run: |
           set -euo pipefail
           for f in index.html login.html 404.html app.js styles.css storage.js permissions.js; do test -s "_site/$f"; done
-          test -s _site/assets/conutway-brazil-china-hero.webp
-          test -s _site/assets/conutway-teza-logo-v2.svg
+          test -s _site/assets/conutway-brazil-china-hero-v7.webp
+          test -s _site/assets/conutway-teza-logo-v7.webp
           grep -q '<base href="/conutway/">' _site/index.html
           grep -q 'id="pagesAuthGuard"' _site/index.html
           grep -q 'id="pagesLogoutHandler"' _site/index.html
           grep -q 'id="loginForm"' _site/login.html
-          grep -q 'premium-assets-v5' _site/login.html
-          grep -q 'conutway-brazil-china-hero.webp' _site/login.html
-          grep -q 'conutway-teza-logo-v2.svg' _site/login.html
+          grep -q 'premium-assets-v7' _site/login.html
+          grep -q 'conutway-brazil-china-hero-v7.webp' _site/login.html
+          grep -q 'conutway-teza-logo-v7.webp' _site/login.html
           grep -q "username !== 'admin' || password !== 'admin'" _site/login.html
           grep -q 'const serverStorageAllowed = () => false;' _site/app.js
           grep -q 'username: "admin"' _site/app.js
