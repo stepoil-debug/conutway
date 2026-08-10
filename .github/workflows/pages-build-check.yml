@@ -48,12 +48,14 @@ jobs:
           )
           i=0
           for sha in "${COMMITS[@]}"; do
-            ref="refs/archive/package-$i"
-            git fetch --no-tags origin "$sha:$ref"
+            git fetch --no-tags origin "$sha:refs/archive/package-$i"
             i=$((i+1))
           done
+          mapfile -t REFS < <(git for-each-ref --format='%(refname)' 'refs/archive/package-*' | sort -V)
+          echo "Refs recuperados: ${#REFS[@]}"
+          test "${#REFS[@]}" -eq "${#COMMITS[@]}"
 
-          mapfile -t PATHS < <(for ref in refs/archive/package-*; do git ls-tree -r --name-only "$ref" .bootstrap; done | grep -E '^\.bootstrap/part-[0-9]+$' | sort -Vu)
+          mapfile -t PATHS < <(for ref in "${REFS[@]}"; do git ls-tree -r --name-only "$ref" .bootstrap; done | grep -E '^\.bootstrap/part-[0-9]+$' | sort -Vu)
           echo "Partes encontradas: ${#PATHS[@]}"
           printf '%s\n' "${PATHS[@]}"
           test "${#PATHS[@]}" -ge 25
@@ -62,7 +64,7 @@ jobs:
           VALIDAS=0
           for path in "${PATHS[@]}"; do
             conteudo=""
-            for ref in refs/archive/package-*; do
+            for ref in "${REFS[@]}"; do
               if git cat-file -e "$ref:$path" 2>/dev/null; then
                 candidato="$(git show "$ref:$path" | tr -d '\r\n\t ')"
                 if [ -n "$candidato" ] && [ "$candidato" != "PLACEHOLDER" ] && printf '%s' "$candidato" | grep -Eq '^[A-Za-z0-9+/=]+$'; then
