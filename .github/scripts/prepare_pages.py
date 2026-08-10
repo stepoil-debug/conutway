@@ -19,13 +19,15 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
 
 
 def main() -> int:
+    repo_root = Path(__file__).resolve().parents[2]
     root = Path(sys.argv[1] if len(sys.argv) > 1 else "_site")
     base = "/conutway/"
     app_path = root / "app.js"
     index_path = root / "index.html"
     style_path = root / "styles.css"
+    login_template_path = repo_root / ".github" / "pages" / "login-template.html"
 
-    for required in (app_path, index_path, style_path):
+    for required in (app_path, index_path, style_path, login_template_path):
         if not required.is_file():
             raise FileNotFoundError(f"Arquivo obrigatório não encontrado: {required}")
 
@@ -39,8 +41,8 @@ def main() -> int:
     app = replace_once(
         app,
         'currentUser: { id: "", username: "", name: "", role: "member", disabled: false, note: "", permissions: [] },',
-        'currentUser: { id: "pages-local", username: "local", name: "Modo local", role: "member", disabled: false, note: "GitHub Pages", permissions: ["all"] },',
-        "usuário local",
+        'currentUser: { id: "pages-admin", username: "admin", name: "Administrador", role: "admin", disabled: false, note: "GitHub Pages", permissions: ["all"] },',
+        "usuário administrador local",
     )
     app = replace_once(
         app,
@@ -99,20 +101,38 @@ def main() -> int:
             flags=re.IGNORECASE,
         )
 
-    # Sair e administração de autenticação não têm ação válida sem backend.
-    html = re.sub(
-        r'(<button\b[^>]*\bid=["\']logoutBtn["\'][^>]*)(>)',
-        lambda match: match.group(1) + (" hidden" if " hidden" not in match.group(1) else "") + match.group(2),
-        html,
-        count=1,
-        flags=re.IGNORECASE,
-    )
+    auth_guard = """<script id="pagesAuthGuard">
+      (() => {
+        const AUTH_KEY = 'conutway.auth.v1';
+        const MAX_AGE = 12 * 60 * 60 * 1000;
+        const root = document.documentElement;
+        root.style.visibility = 'hidden';
+        try {
+          const raw = sessionStorage.getItem(AUTH_KEY);
+          const auth = raw ? JSON.parse(raw) : null;
+          const valid = auth?.user === 'admin' && Number.isFinite(auth?.issuedAt) && (Date.now() - auth.issuedAt) < MAX_AGE;
+          if (valid) {
+            root.style.visibility = '';
+            return;
+          }
+        } catch (_) {}
+        sessionStorage.removeItem(AUTH_KEY);
+        window.location.replace('login.html');
+      })();
+    </script>"""
+    if 'id="pagesAuthGuard"' not in html:
+        html = re.sub(
+            r'(<base\b[^>]*>)',
+            lambda match: match.group(1) + "\n    " + auth_guard,
+            html,
+            count=1,
+            flags=re.IGNORECASE,
+        )
 
     banner = (
         '<div class="pages-mode-banner" role="status">'
-        '<strong>Modo local</strong>'
-        '<span>Os dados ficam salvos somente neste navegador. '
-        'Recursos que exigem servidor estão temporariamente ocultos.</span>'
+        '<strong>Ambiente demonstrativo</strong>'
+        '<span>Dados salvos localmente neste navegador.</span>'
         "</div>"
     )
     if "pages-mode-banner" not in html:
@@ -123,16 +143,28 @@ def main() -> int:
             count=1,
             flags=re.IGNORECASE,
         )
+
+    logout_script = """<script id="pagesLogoutHandler">
+      document.addEventListener('click', (event) => {
+        const target = event.target instanceof Element ? event.target.closest('#logoutBtn') : null;
+        if (!target) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        sessionStorage.removeItem('conutway.auth.v1');
+        window.location.replace('login.html');
+      }, true);
+    </script>"""
+    if 'id="pagesLogoutHandler"' not in html:
+        html = re.sub(
+            r"</body>",
+            logout_script + "\n  </body>",
+            html,
+            count=1,
+            flags=re.IGNORECASE,
+        )
     index_path.write_text(html, encoding="utf-8")
 
-    login = (
-        '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">'
-        '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        '<meta http-equiv="refresh" content="0; url=./">'
-        '<title>CONUTWAY TEZA ERP</title>'
-        "<script>window.location.replace('./');</script>"
-        '</head><body><p>Redirecionando para o ERP...</p></body></html>'
-    )
+    login = login_template_path.read_text(encoding="utf-8")
     (root / "login.html").write_text(login, encoding="utf-8")
 
     css = """
@@ -202,9 +234,9 @@ def main() -> int:
         "href='/assets/": f"href='{base}assets/",
         "url(/assets/": f"url({base}assets/",
         'src="/static/': f'src="{base}static/',
-        "src='/static/": f"src='{base}static/",
+        "src='/static/": f"src='{base}static/',
         'href="/static/': f'href="{base}static/',
-        "href='/static/": f"href='{base}static/",
+        "href='/static/": f"href='{base}static/',
         "url(/static/": f"url({base}static/",
         'href="/favicon': f'href="{base}favicon',
         "href='/favicon": f"href='{base}favicon",
