@@ -1,0 +1,45 @@
+name: Auditar CONUTWAY publicado
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar Playwright
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Navegar e auditar site publicado
+        run: node .github/scripts/live-pages-audit.mjs
+
+      - name: Anexar relatório da auditoria
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conutway-live-pages-audit
+          path: |
+            live-pages-audit.json
+            live-pages-audit.png
+          if-no-files-found: warn
+          retention-days: 7
