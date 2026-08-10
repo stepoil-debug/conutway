@@ -13,7 +13,6 @@ def main() -> int:
     legacy_prepare = repo_root / ".github" / "scripts" / "prepare_pages.py"
     root = Path(sys.argv[1] if len(sys.argv) > 1 else "_site")
 
-    # Alinha a sessão do login com o guard usado pelo workspace.
     text = template.read_text(encoding="utf-8")
     auth_marker = "sessionStorage.setItem('conutway.auth.v1'"
     current_success = (
@@ -31,11 +30,9 @@ def main() -> int:
             raise RuntimeError("Trecho de sucesso do login não encontrado para alinhar a autenticação.")
         template.write_text(text.replace(current_success, aligned_success, 1), encoding="utf-8")
 
-    # Executa toda a preparação estável do ERP/Pages.
     args = [sys.executable, str(legacy_prepare), *sys.argv[1:]]
     subprocess.run(args, check=True)
 
-    # Copia os binários reais que já estão versionados no Git.
     assets = root / "assets"
     assets.mkdir(parents=True, exist_ok=True)
     hero_src = repo_root / ".github" / "pages" / "conutway-brazil-china-hero-user.webp"
@@ -45,7 +42,6 @@ def main() -> int:
     shutil.copy2(hero_src, assets / "conutway-brazil-china-hero-user.webp")
     shutil.copy2(logo_src, assets / "conutway-teza-logo-user.webp")
 
-    # A versão atual do login já possui <img> para hero e logo. Apenas troca as fontes.
     login_path = root / "login.html"
     login = login_path.read_text(encoding="utf-8")
 
@@ -75,6 +71,19 @@ def main() -> int:
 
     for marker in ('target-v2-backup-hero', 'premium-user-hero-v9'):
         login = login.replace(marker, 'premium-user-assets-v15')
+
+    # Corrige a pilha visual: antes o hero ficava atrás do background do próprio painel.
+    login = login.replace('z-index:-5;', 'z-index:0;', 1)
+    login = login.replace('z-index:-4;', 'z-index:1;', 1)
+    login = login.replace('z-index:-3;', 'z-index:2;', 1)
+    login = login.replace('.hero-inner{min-height:', '.hero-inner{position:relative;z-index:3;min-height:', 1)
+
+    # Preserva a imagem inteira China/Brasil sem cortar as laterais.
+    login = login.replace(
+        'width:100%;height:72%;object-fit:cover;object-position:center center;',
+        'width:100%;height:auto;object-fit:contain;object-position:center top;',
+        1,
+    )
 
     login_path.write_text(login, encoding="utf-8")
     return 0
