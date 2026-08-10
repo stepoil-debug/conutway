@@ -102,5 +102,8 @@ jobs:
           path: |
             pages-login-audit.json
             pages-login-audit.png
+            _site/login.html
+            _site/assets/conutway-brazil-china-hero-user.webp
+            _site/assets/conutway-teza-logo-user.webp
           if-no-files-found: warn
           retention-days: 7
