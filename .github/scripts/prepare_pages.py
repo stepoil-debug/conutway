@@ -151,6 +151,7 @@ def main() -> int:
         event.preventDefault();
         event.stopImmediatePropagation();
         sessionStorage.removeItem('conutway.auth.v1');
+        sessionStorage.removeItem('conutway_pages_auth');
         window.location.replace('login.html');
       }, true);
     </script>"""
@@ -165,6 +166,15 @@ def main() -> int:
     index_path.write_text(html, encoding="utf-8")
 
     login = login_template_path.read_text(encoding="utf-8")
+    # O layout premium usa uma chave própria para reaproveitar a sessão no login.
+    # O workspace, porém, valida conutway.auth.v1. Gravamos as duas estruturas
+    # no mesmo submit para evitar o loop login -> workspace -> login.
+    old_success = "sessionStorage.setItem(KEY,JSON.stringify({username:'admin',at:Date.now()}));location.href='./'"
+    new_success = "const now=Date.now();sessionStorage.setItem(KEY,JSON.stringify({username:'admin',at:now}));sessionStorage.setItem('conutway.auth.v1',JSON.stringify({user:'admin',issuedAt:now}));location.href='./'"
+    if old_success in login:
+        login = login.replace(old_success, new_success, 1)
+    elif "sessionStorage.setItem('conutway.auth.v1'" not in login:
+        raise RuntimeError("Trecho de autenticação do login não encontrado para alinhar com o workspace.")
     (root / "login.html").write_text(login, encoding="utf-8")
 
     css = """
