@@ -46,7 +46,8 @@ jobs:
       - name: Validar visual e acesso
         shell: bash
         run: |
-          cat > /tmp/qa.mjs <<'JS'
+          mkdir -p .github/scripts
+          cat > .github/scripts/qa-login-visual.mjs <<'JS'
           import { chromium } from 'playwright';
           const browser = await chromium.launch({ headless: true });
           const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
@@ -72,7 +73,7 @@ jobs:
           console.log(JSON.stringify({ok:true,logoOk,heroOk,url:page.url()},null,2));
           await browser.close();
           JS
-          node /tmp/qa.mjs
+          node .github/scripts/qa-login-visual.mjs
 
       - name: Guardar evidência
         if: always()
