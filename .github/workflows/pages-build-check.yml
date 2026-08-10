@@ -23,14 +23,27 @@ jobs:
           set -euo pipefail
 
           mapfile -t PARTES < <(find .bootstrap -maxdepth 1 -type f -regextype posix-extended -regex '.*/part-[0-9]+' -print | sort -V)
-          echo "Partes encontradas: ${#PARTES[@]}"
-          printf '%s\n' "${PARTES[@]}"
-          if [ "${#PARTES[@]}" -lt 10 ]; then
-            echo "Quantidade inesperada de partes: ${#PARTES[@]}"
-            exit 1
-          fi
+          echo "Candidatos encontrados: ${#PARTES[@]}"
+          : > /tmp/conutway-package.b64
+          VALIDAS=0
+          for parte in "${PARTES[@]}"; do
+            conteudo="$(tr -d '\r\n\t ' < "$parte")"
+            if [ -z "$conteudo" ] || [ "$conteudo" = "PLACEHOLDER" ]; then
+              echo "Ignorando placeholder: $parte"
+              continue
+            fi
+            if ! printf '%s' "$conteudo" | grep -Eq '^[A-Za-z0-9+/=]+$'; then
+              echo "Bloco inválido: $parte"
+              exit 1
+            fi
+            printf '%s' "$conteudo" >> /tmp/conutway-package.b64
+            VALIDAS=$((VALIDAS + 1))
+            echo "Incluído: $parte ($(printf '%s' "$conteudo" | wc -c) chars)"
+          done
+          echo "Partes válidas: $VALIDAS"
+          test "$VALIDAS" -ge 10
 
-          cat "${PARTES[@]}" | tr -d '\r\n\t ' | base64 --decode > /tmp/conutway-package.xz
+          base64 --decode /tmp/conutway-package.b64 > /tmp/conutway-package.xz
           echo "Tamanho XZ: $(stat -c%s /tmp/conutway-package.xz) bytes"
           xz -t /tmp/conutway-package.xz
           xz -dc /tmp/conutway-package.xz > /tmp/conutway-package.bin
