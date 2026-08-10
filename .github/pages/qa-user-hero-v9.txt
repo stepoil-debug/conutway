@@ -1,0 +1,1 @@
+QA da imagem enviada pelo usuário aplicada diretamente no login.
