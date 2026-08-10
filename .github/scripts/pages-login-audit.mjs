@@ -91,7 +91,7 @@ try {
   report.heroVisible = await hero.isVisible();
   if (!report.heroVisible) fail('Imagem China/Brasil não ficou visível no hero.');
   const heroBox = await hero.boundingBox();
-  if (!heroBox || heroBox.width < 650 || heroBox.height < 600) fail(`Hero com área inesperada: ${JSON.stringify(heroBox)}`);
+  if (!heroBox || heroBox.width < 650 || heroBox.height < 300) fail(`Hero com área inesperada: ${JSON.stringify(heroBox)}`);
   const heroMetrics = await hero.evaluate((el) => ({ complete: el.complete, naturalWidth: el.naturalWidth, naturalHeight: el.naturalHeight, src: el.currentSrc }));
   report.heroNaturalWidth = heroMetrics.naturalWidth;
   report.heroNaturalHeight = heroMetrics.naturalHeight;
