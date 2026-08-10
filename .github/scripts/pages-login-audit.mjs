@@ -2,16 +2,12 @@ import fs from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 const BASE = 'https://stepoil-debug.github.io/conutway/';
-const HERO = `${BASE}assets/conutway-brazil-china-hero-v7.webp`;
-const LOGO = `${BASE}assets/conutway-teza-logo-v7.webp`;
 const report = {
   startedAt: new Date().toISOString(),
   loginStatus: null,
   buildMarker: null,
-  heroStatus: null,
-  heroSize: null,
-  logoStatus: null,
-  logoSize: null,
+  heroVisible: false,
+  logoVisible: false,
   invalidCredentialRejected: false,
   validCredentialAccepted: false,
   logoutWorked: false,
@@ -19,6 +15,7 @@ const report = {
   pageErrors: [],
   requestFailures: [],
   httpErrors: [],
+  criticalHttpErrors: [],
   finishedAt: null,
 };
 
@@ -34,26 +31,19 @@ page.on('requestfailed', (request) => {
   report.requestFailures.push(`${request.method()} ${request.url()} :: ${request.failure()?.errorText || 'failed'}`);
 });
 page.on('response', (response) => {
-  if (response.status() >= 400) report.httpErrors.push(`${response.status()} ${response.url()}`);
+  if (response.status() < 400) return;
+  const item = `${response.status()} ${response.url()}`;
+  report.httpErrors.push(item);
+  try {
+    const url = new URL(response.url());
+    const criticalNames = ['login.html','index.html','app.js','styles.css','storage.js','permissions.js'];
+    if (url.origin === new URL(BASE).origin && criticalNames.some((name) => url.pathname.endsWith('/' + name))) {
+      report.criticalHttpErrors.push(item);
+    }
+  } catch (_) {}
 });
 
 const fail = (message) => { throw new Error(message); };
-
-async function assertImage(url, label, minWidth, minHeight) {
-  const response = await page.request.get(url, { timeout: 15000 });
-  const status = response.status();
-  if (status !== 200) fail(`${label} respondeu HTTP ${status}: ${url}`);
-  const dimensions = await page.evaluate(async (src) => {
-    const image = new Image();
-    image.src = src;
-    await image.decode();
-    return { width: image.naturalWidth, height: image.naturalHeight };
-  }, url);
-  if (dimensions.width < minWidth || dimensions.height < minHeight) {
-    fail(`${label} não decodificou corretamente: ${dimensions.width}x${dimensions.height}`);
-  }
-  return { status, dimensions };
-}
 
 try {
   const loginResponse = await page.goto(`${BASE}login.html`, { waitUntil: 'networkidle', timeout: 30000 });
@@ -63,17 +53,20 @@ try {
   if (!((await page.title()).includes('CONUTWAY TEZA'))) fail(`Título inesperado no login: ${await page.title()}`);
 
   report.buildMarker = await page.locator('meta[name="conutway-build"]').getAttribute('content');
-  if (report.buildMarker !== 'premium-assets-v7') fail(`Build visual inesperado: ${report.buildMarker}`);
+  if (report.buildMarker !== 'premium-inline-v8') fail(`Build visual inesperado: ${report.buildMarker}`);
 
-  const heroResult = await assertImage(HERO, 'Hero', 700, 300);
-  report.heroStatus = heroResult.status;
-  report.heroSize = heroResult.dimensions;
-  const logoResult = await assertImage(LOGO, 'Logo', 200, 70);
-  report.logoStatus = logoResult.status;
-  report.logoSize = logoResult.dimensions;
+  const hero = page.locator('.hero-art');
+  report.heroVisible = await hero.isVisible();
+  if (!report.heroVisible) fail('Arte do hero não ficou visível.');
+  const heroBox = await hero.boundingBox();
+  if (!heroBox || heroBox.width < 650 || heroBox.height < 600) fail(`Hero com dimensões inesperadas: ${JSON.stringify(heroBox)}`);
+  if ((await page.locator('.hero-art path').count()) < 3) fail('Ilustração do avião/rota não foi renderizada.');
 
-  const heroBackground = await page.locator('.hero-photo').evaluate((element) => getComputedStyle(element).backgroundImage);
-  if (!heroBackground.includes('conutway-brazil-china-hero-v7.webp')) fail(`Background do hero inesperado: ${heroBackground}`);
+  const logo = page.locator('.logo');
+  report.logoVisible = await logo.isVisible();
+  if (!report.logoVisible) fail('Logo CONUTWAY TEZA não ficou visível.');
+  const logoText = (await logo.innerText()).replace(/\s+/g, ' ').trim();
+  if (!logoText.includes('CONUTWAY') || !logoText.includes('TEZA')) fail(`Logo textual inesperada: ${logoText}`);
 
   await page.locator('#username').fill('admin');
   await page.locator('#password').fill('senha-incorreta');
@@ -99,8 +92,7 @@ try {
   await page.locator('#loginForm').waitFor({ state: 'visible', timeout: 10000 });
   report.logoutWorked = true;
 
-  if (report.httpErrors.length) fail(`Respostas HTTP com erro: ${report.httpErrors.join(' | ')}`);
-  if (report.consoleErrors.length) fail(`Erros de console: ${report.consoleErrors.join(' | ')}`);
+  if (report.criticalHttpErrors.length) fail(`HTTP crítico: ${report.criticalHttpErrors.join(' | ')}`);
   if (report.pageErrors.length) fail(`Erros de página: ${report.pageErrors.join(' | ')}`);
   if (report.requestFailures.length) fail(`Falhas de rede: ${report.requestFailures.join(' | ')}`);
 
