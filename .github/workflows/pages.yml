@@ -50,23 +50,8 @@ jobs:
           set -euo pipefail
           mkdir -p _site/assets
           cp .github/pages/conutway-teza-logo-v2.svg _site/assets/conutway-teza-logo-v2.svg
-          python3 - <<'PY'
-          import base64
-          import re
-          from pathlib import Path
-
-          source = Path('.github/pages/conutway-brazil-china-hero-v2.svg')
-          target = Path('_site/assets/conutway-brazil-china-hero-v2.webp')
-          text = source.read_text(encoding='utf-8')
-          match = re.search(r'href="data:image/webp;base64,([^\"]+)"', text, flags=re.S)
-          if not match:
-              raise SystemExit('WebP embutido não encontrado no SVG de origem')
-          payload = base64.b64decode(re.sub(r'\s+', '', match.group(1)))
-          if len(payload) < 20000 or payload[:4] != b'RIFF' or payload[8:12] != b'WEBP':
-              raise SystemExit('Hero WebP extraído é inválido')
-          target.write_bytes(payload)
-          print(f'hero_webp_bytes={len(payload)}')
-          PY
+          base64 --decode .github/pages/conutway-brazil-china-hero-v2.webp.b64 > _site/assets/conutway-brazil-china-hero-v2.webp
+          python3 -c "from pathlib import Path; p=Path('_site/assets/conutway-brazil-china-hero-v2.webp'); b=p.read_bytes(); assert len(b) > 100000 and b[:4] == b'RIFF' and b[8:12] == b'WEBP'; print('hero_webp_bytes=', len(b))"
 
       - name: Validar site final e autenticação
         shell: bash
@@ -77,16 +62,15 @@ jobs:
           done
           test -s _site/assets/conutway-brazil-china-hero-v2.webp
           test -s _site/assets/conutway-teza-logo-v2.svg
-          file _site/assets/conutway-brazil-china-hero-v2.webp | grep -qi 'Web/P image'
           grep -q '<base href="/conutway/">' _site/index.html
           grep -q 'id="pagesAuthGuard"' _site/index.html
           grep -q 'id="pagesLogoutHandler"' _site/index.html
           grep -q 'id="loginForm"' _site/login.html
           grep -q 'conutway-brazil-china-hero-v2.webp' _site/login.html
           grep -q 'conutway-teza-logo-v2.svg' _site/login.html
-          grep -q "username!=='admin'||password!=='admin'" _site/login.html
-          grep -q 'const serverStorageAllowed = () => false;' _site/app.js
-          grep -q 'username: "admin"' _site/app.js
+          grep -Fq "username!=='admin'||password!=='admin'" _site/login.html
+          grep -Fq 'const serverStorageAllowed = () => false;' _site/app.js
+          grep -Fq 'username: "admin"' _site/app.js
           node --check _site/app.js
           node --check _site/storage.js
           node --check _site/permissions.js
