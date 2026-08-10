@@ -1,0 +1,1 @@
+QA v5: build estável + hero WebP e logo copiados localmente no mesmo fluxo do deploy oficial.
