@@ -92,38 +92,24 @@ try {
   if (!report.heroVisible) fail('Imagem China/Brasil não ficou visível no hero.');
   const heroBox = await hero.boundingBox();
   if (!heroBox || heroBox.width < 650 || heroBox.height < 600) fail(`Hero com área inesperada: ${JSON.stringify(heroBox)}`);
-  const heroMetrics = await hero.evaluate((el) => ({
-    complete: el.complete,
-    naturalWidth: el.naturalWidth,
-    naturalHeight: el.naturalHeight,
-    src: el.currentSrc,
-  }));
+  const heroMetrics = await hero.evaluate((el) => ({ complete: el.complete, naturalWidth: el.naturalWidth, naturalHeight: el.naturalHeight, src: el.currentSrc }));
   report.heroNaturalWidth = heroMetrics.naturalWidth;
   report.heroNaturalHeight = heroMetrics.naturalHeight;
   if (!heroMetrics.complete || heroMetrics.naturalWidth < 700 || heroMetrics.naturalHeight < 300) {
     fail(`Imagem do hero não decodificou corretamente: ${JSON.stringify(heroMetrics)}`);
   }
-  if (!heroMetrics.src.endsWith('/conutway/assets/conutway-brazil-china-hero-user.webp')) {
-    fail(`Hero aponta para recurso inesperado: ${heroMetrics.src}`);
-  }
+  if (!heroMetrics.src.endsWith('/conutway/assets/conutway-brazil-china-hero-user.webp')) fail(`Hero aponta para recurso inesperado: ${heroMetrics.src}`);
 
-  const logo = page.locator('.logo-card img');
+  const logo = page.locator('.brand-logo');
   await logo.waitFor({ state: 'visible', timeout: 10000 });
   report.logoVisible = await logo.isVisible();
-  const logoMetrics = await logo.evaluate((el) => ({
-    complete: el.complete,
-    naturalWidth: el.naturalWidth,
-    naturalHeight: el.naturalHeight,
-    src: el.currentSrc,
-  }));
+  const logoMetrics = await logo.evaluate((el) => ({ complete: el.complete, naturalWidth: el.naturalWidth, naturalHeight: el.naturalHeight, src: el.currentSrc }));
   report.logoNaturalWidth = logoMetrics.naturalWidth;
   report.logoNaturalHeight = logoMetrics.naturalHeight;
   if (!logoMetrics.complete || logoMetrics.naturalWidth < 200 || logoMetrics.naturalHeight < 60) {
     fail(`Logo não decodificou corretamente: ${JSON.stringify(logoMetrics)}`);
   }
-  if (!logoMetrics.src.endsWith('/conutway/assets/conutway-teza-logo-user.webp')) {
-    fail(`Logo aponta para recurso inesperado: ${logoMetrics.src}`);
-  }
+  if (!logoMetrics.src.endsWith('/conutway/assets/conutway-teza-logo-user.webp')) fail(`Logo aponta para recurso inesperado: ${logoMetrics.src}`);
 
   await page.screenshot({ path: 'pages-login-audit.png', fullPage: true });
 
