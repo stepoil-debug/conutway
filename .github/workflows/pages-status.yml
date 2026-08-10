@@ -7,24 +7,46 @@ on:
 permissions:
   contents: read
   pages: read
+  actions: read
 
 jobs:
   pages-status:
     runs-on: ubuntu-latest
     steps:
-      - name: Consultar API do GitHub Pages
+      - name: Consultar configuração e deploy do GitHub Pages
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          MAIN_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
-          URL="https://api.github.com/repos/${GITHUB_REPOSITORY}/pages"
-          CODE=$(curl -sS -o /tmp/pages.json -w '%{http_code}' \
-            -H 'Accept: application/vnd.github+json' \
-            -H "Authorization: Bearer ${GH_TOKEN}" \
-            -H 'X-GitHub-Api-Version: 2026-03-10' \
-            "$URL")
-          echo "PAGES_HTTP_STATUS=$CODE"
-          cat /tmp/pages.json
+          API="https://api.github.com/repos/${GITHUB_REPOSITORY}"
+          headers=(
+            -H 'Accept: application/vnd.github+json'
+            -H "Authorization: Bearer ${GH_TOKEN}"
+            -H 'X-GitHub-Api-Version: 2026-03-10'
+          )
+
+          code=$(curl -sS -o /tmp/pages.json -w '%{http_code}' "${headers[@]}" "$API/pages")
+          echo "PAGES_HTTP_STATUS=$code"
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/pages.json'))
+          print('PAGES=', {k:p.get(k) for k in ('html_url','build_type','status','public','https_enforced','source')})
+          PY
+
+          code=$(curl -sS -o /tmp/runs.json -w '%{http_code}' "${headers[@]}" "$API/actions/workflows/pages.yml/runs?branch=main&event=push&per_page=10")
+          echo "WORKFLOW_RUNS_HTTP_STATUS=$code"
+          python3 - <<'PY'
+          import json
+          p=json.load(open('/tmp/runs.json'))
+          print('TOTAL_RUNS=', p.get('total_count'))
+          for r in p.get('workflow_runs', []):
+              print('RUN=', {k:r.get(k) for k in ('id','name','event','status','conclusion','head_sha','run_number','created_at','updated_at','html_url')})
+          PY
+
+          code=$(curl -sS -o /tmp/deploy.json -w '%{http_code}' "${headers[@]}" "$API/pages/deployments/${MAIN_SHA}")
+          echo "DEPLOYMENT_HTTP_STATUS=$code MAIN_SHA=$MAIN_SHA"
+          cat /tmp/deploy.json
           echo
           exit 0
