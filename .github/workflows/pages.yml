@@ -6,6 +6,7 @@ on:
     paths:
       - '.bootstrap/**'
       - 'conutway-pages-ready.b64'
+      - '.github/pages/**'
       - '.github/scripts/recover_pages.py'
       - '.github/scripts/prepare_pages.py'
       - '.github/workflows/pages.yml'
@@ -42,15 +43,20 @@ jobs:
       - name: Preparar modo GitHub Pages
         run: python3 .github/scripts/prepare_pages.py _site
 
-      - name: Validar site final
+      - name: Validar site final e autenticação
         shell: bash
         run: |
           set -euo pipefail
-          for f in index.html 404.html app.js styles.css storage.js permissions.js; do
+          for f in index.html login.html 404.html app.js styles.css storage.js permissions.js; do
             test -s "_site/$f"
           done
           grep -q '<base href="/conutway/">' _site/index.html
+          grep -q 'id="pagesAuthGuard"' _site/index.html
+          grep -q 'id="pagesLogoutHandler"' _site/index.html
+          grep -q 'id="loginForm"' _site/login.html
+          grep -q "username !== 'admin' || password !== 'admin'" _site/login.html
           grep -q 'const serverStorageAllowed = () => false;' _site/app.js
+          grep -q 'username: "admin"' _site/app.js
           node --check _site/app.js
           node --check _site/storage.js
           node --check _site/permissions.js
