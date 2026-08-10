@@ -1,4 +1,4 @@
-name: Diagnosticar pacote estático do CONUTWAY
+name: Validar build estático do CONUTWAY
 
 on:
   pull_request:
@@ -9,24 +9,81 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
+  build-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Medir pacote atual
+      - name: Baixar histórico completo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Recuperar todas as partes históricas do pacote
         shell: bash
         run: |
           set -euo pipefail
-          echo "b64_chars=$(wc -c < conutway-pages-ready.b64)"
-          echo "b64_sha256=$(sha256sum conutway-pages-ready.b64 | awk '{print $1}')"
-          echo "head=$(head -c 80 conutway-pages-ready.b64)"
-          echo "tail=$(tail -c 80 conutway-pages-ready.b64)"
-          if base64 --decode conutway-pages-ready.b64 > /tmp/site.zip 2>/tmp/decode.err; then
-            echo "decode=ok"
-            echo "zip_bytes=$(wc -c < /tmp/site.zip)"
-            unzip -tq /tmp/site.zip
+          git fetch --all --prune --no-tags
+          mapfile -t PATHS < <(git log --all --pretty=format: --name-only -- '.bootstrap/part-*' | grep -E '^\.bootstrap/part-[0-9]+$' | sort -Vu)
+          echo "Caminhos históricos: ${#PATHS[@]}"
+          test "${#PATHS[@]}" -ge 50
+          : > /tmp/site.b64
+          VALIDAS=0
+          for path in "${PATHS[@]}"; do
+            conteudo=""
+            while IFS= read -r commit; do
+              if git cat-file -e "$commit:$path" 2>/dev/null; then
+                candidato="$(git show "$commit:$path" | tr -d '\r\n\t ')"
+                if [ -n "$candidato" ] && [ "$candidato" != "PLACEHOLDER" ] && printf '%s' "$candidato" | grep -Eq '^[A-Za-z0-9+/=]+$'; then
+                  conteudo="$candidato"
+                  break
+                fi
+              fi
+            done < <(git rev-list --all)
+            if [ -z "$conteudo" ]; then
+              echo "Sem conteúdo válido para $path"
+              continue
+            fi
+            printf '%s' "$conteudo" >> /tmp/site.b64
+            VALIDAS=$((VALIDAS + 1))
+            echo "Recuperado $path"
+          done
+          echo "Partes válidas recuperadas: $VALIDAS"
+          base64 --decode /tmp/site.b64 > /tmp/site.xz
+          echo "XZ: $(stat -c%s /tmp/site.xz) bytes"
+          xz -t /tmp/site.xz
+          xz -dc /tmp/site.xz > /tmp/site.bin
+          rm -rf restaurado && mkdir restaurado
+          if tar -tf /tmp/site.bin >/dev/null 2>&1; then
+            tar -xf /tmp/site.bin -C restaurado
+          elif unzip -tq /tmp/site.bin >/dev/null 2>&1; then
+            unzip -q /tmp/site.bin -d restaurado
           else
-            echo "decode=fail"
-            cat /tmp/decode.err
+            file /tmp/site.bin || true
             exit 1
           fi
+          APP_INDEX="$(find restaurado -type f -path '*/app/index.html' | sort | head -n 1 || true)"
+          if [ -z "$APP_INDEX" ]; then APP_INDEX="$(find restaurado -type f -name index.html | sort | head -n 1 || true)"; fi
+          test -n "$APP_INDEX"
+          APP_DIR="$(dirname "$APP_INDEX")"
+          rm -rf _site && mkdir _site
+          cp -a "$APP_DIR"/. _site/
+          rm -f _site/server.js _site/rfq-server-service.js _site/workspace-rfq-client.js _site/docker-compose.yml _site/start-conutway-br-erp.sh _site/README.md
+          rm -rf _site/tools _site/node_modules _site/data _site/secure _site/uploads _site/exports _site/backup _site/deployment
+          touch _site/.nojekyll
+
+      - name: Preparar modo GitHub Pages
+        run: python3 .github/scripts/prepare_pages.py _site
+
+      - name: Validar site final
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in index.html 404.html app.js styles.css storage.js permissions.js; do test -s "_site/$f"; done
+          grep -q '<base href="/conutway/">' _site/index.html
+          grep -q 'const serverStorageAllowed = () => false;' _site/app.js
+          node --check _site/app.js
+          node --check _site/storage.js
+          node --check _site/permissions.js
+          echo "Arquivos finais: $(find _site -type f | wc -l)"
+          du -sh _site
