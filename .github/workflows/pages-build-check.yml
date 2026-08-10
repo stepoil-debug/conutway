@@ -52,13 +52,11 @@ jobs:
             i=$((i+1))
           done
           mapfile -t REFS < <(git for-each-ref --format='%(refname)' 'refs/archive/package-*' | sort -V)
-          echo "Refs recuperados: ${#REFS[@]}"
-          test "${#REFS[@]}" -eq "${#COMMITS[@]}"
-
+          test "${#REFS[@]}" -eq 21
           mapfile -t PATHS < <(for ref in "${REFS[@]}"; do git ls-tree -r --name-only "$ref" .bootstrap; done | grep -E '^\.bootstrap/part-[0-9]+$' | sort -Vu)
-          echo "Partes encontradas: ${#PATHS[@]}"
+          echo "Partes históricas: ${#PATHS[@]}"
           printf '%s\n' "${PATHS[@]}"
-          test "${#PATHS[@]}" -ge 25
+          test "${#PATHS[@]}" -eq 21
 
           : > /tmp/site.b64
           VALIDAS=0
@@ -73,14 +71,13 @@ jobs:
                 fi
               fi
             done
-            if [ -n "$conteudo" ]; then
-              printf '%s' "$conteudo" >> /tmp/site.b64
-              VALIDAS=$((VALIDAS+1))
-            fi
+            test -n "$conteudo"
+            printf '%s' "$conteudo" >> /tmp/site.b64
+            VALIDAS=$((VALIDAS+1))
           done
-          echo "Partes válidas: $VALIDAS"
+          test "$VALIDAS" -eq 21
           base64 --decode /tmp/site.b64 > /tmp/site.xz
-          echo "XZ: $(stat -c%s /tmp/site.xz) bytes"
+          echo "XZ reconstruído: $(stat -c%s /tmp/site.xz) bytes"
           xz -t /tmp/site.xz
           xz -dc /tmp/site.xz > /tmp/site.bin
 
