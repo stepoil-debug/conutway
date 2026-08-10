@@ -1,4 +1,4 @@
-name: Validar build estático do CONUTWAY
+name: Diagnosticar pacote estático do CONUTWAY
 
 on:
   pull_request:
@@ -9,119 +9,24 @@ permissions:
   contents: read
 
 jobs:
-  build-check:
+  diagnose:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
     steps:
-      - name: Baixar repositório
-        uses: actions/checkout@v4
-
-      - name: Reconstruir pacote original completo
+      - uses: actions/checkout@v4
+      - name: Medir pacote atual
         shell: bash
         run: |
           set -euo pipefail
-
-          mapfile -t PARTES < <(find .bootstrap -maxdepth 1 -type f -regextype posix-extended -regex '.*/part-[0-9]+' -print | sort -V)
-          echo "Candidatos encontrados: ${#PARTES[@]}"
-          : > /tmp/conutway-package.b64
-          VALIDAS=0
-          for parte in "${PARTES[@]}"; do
-            conteudo="$(tr -d '\r\n\t ' < "$parte")"
-            if [ -z "$conteudo" ] || [ "$conteudo" = "PLACEHOLDER" ]; then
-              echo "Ignorando placeholder: $parte"
-              continue
-            fi
-            if ! printf '%s' "$conteudo" | grep -Eq '^[A-Za-z0-9+/=]+$'; then
-              echo "Bloco inválido: $parte"
-              exit 1
-            fi
-            printf '%s' "$conteudo" >> /tmp/conutway-package.b64
-            VALIDAS=$((VALIDAS + 1))
-            echo "Incluído: $parte ($(printf '%s' "$conteudo" | wc -c) chars)"
-          done
-          echo "Partes válidas: $VALIDAS"
-          test "$VALIDAS" -ge 10
-
-          base64 --decode /tmp/conutway-package.b64 > /tmp/conutway-package.xz
-          echo "Tamanho XZ: $(stat -c%s /tmp/conutway-package.xz) bytes"
-          xz -t /tmp/conutway-package.xz
-          xz -dc /tmp/conutway-package.xz > /tmp/conutway-package.bin
-
-          rm -rf restaurado
-          mkdir -p restaurado
-          if tar -tf /tmp/conutway-package.bin >/dev/null 2>&1; then
-            tar -xf /tmp/conutway-package.bin -C restaurado
-          elif unzip -tq /tmp/conutway-package.bin >/dev/null 2>&1; then
-            unzip -q /tmp/conutway-package.bin -d restaurado
+          echo "b64_chars=$(wc -c < conutway-pages-ready.b64)"
+          echo "b64_sha256=$(sha256sum conutway-pages-ready.b64 | awk '{print $1}')"
+          echo "head=$(head -c 80 conutway-pages-ready.b64)"
+          echo "tail=$(tail -c 80 conutway-pages-ready.b64)"
+          if base64 --decode conutway-pages-ready.b64 > /tmp/site.zip 2>/tmp/decode.err; then
+            echo "decode=ok"
+            echo "zip_bytes=$(wc -c < /tmp/site.zip)"
+            unzip -tq /tmp/site.zip
           else
-            echo "Pacote reconstruído não é TAR nem ZIP."
-            file /tmp/conutway-package.bin || true
+            echo "decode=fail"
+            cat /tmp/decode.err
             exit 1
           fi
-
-          APP_INDEX="$(find restaurado -type f -path '*/app/index.html' | sort | head -n 1 || true)"
-          test -n "$APP_INDEX"
-          APP_DIR="$(dirname "$APP_INDEX")"
-          echo "Frontend: $APP_DIR"
-
-          rm -rf _site
-          mkdir -p _site
-          cp -a "$APP_DIR"/. _site/
-
-          rm -f \
-            _site/server.js \
-            _site/rfq-server-service.js \
-            _site/workspace-rfq-client.js \
-            _site/docker-compose.yml \
-            _site/start-conutway-br-erp.sh \
-            _site/README.md
-          rm -rf _site/tools
-          touch _site/.nojekyll
-
-      - name: Preparar modo GitHub Pages
-        run: python3 .github/scripts/prepare_pages.py _site
-
-      - name: Validar conteúdo final
-        shell: bash
-        run: |
-          set -euo pipefail
-          for file in \
-            _site/index.html \
-            _site/404.html \
-            _site/app.js \
-            _site/styles.css \
-            _site/storage.js \
-            _site/permissions.js \
-            _site/assets/ct-mark.png \
-            _site/assets/conutway-teza-logo-crop.png; do
-            test -s "$file" || { echo "Arquivo ausente: $file"; exit 1; }
-          done
-
-          test ! -e _site/server.js
-          test ! -e _site/rfq-server-service.js
-          test ! -e _site/workspace-rfq-client.js
-          grep -q '<base href="/conutway/">' _site/index.html
-          grep -Eq 'id="logoutBtn"[^>]* hidden' _site/index.html
-          grep -q 'const serverStorageAllowed = () => false;' _site/app.js
-          grep -q 'activeUserSurface: "roster"' _site/app.js
-          grep -q 'const authVisible = isCurrentUserAdmin() && serverStorageAllowed();' _site/app.js
-          grep -q '\["documents", "internalRfqs"\].includes(moduleName)' _site/app.js
-
-          node --check _site/app.js
-          node --check _site/storage.js
-          node --check _site/permissions.js
-          node --check _site/contracts.js
-          node --check _site/pricing.js
-          node --check _site/project-accounts.js
-          node --check _site/rfq-ui.js
-          node --check _site/rfq-exchange.js
-          node --check _site/rfq-notifications.js
-          node --check _site/master-sync.js
-          node --check _site/nas-operations.js
-          node --check _site/nas-status-ui.js
-          node --check _site/operation-feedback.js
-          node --check _site/formatting.js
-
-          echo "Build estático validado: $(find _site -type f | wc -l) arquivos"
-          du -sh _site
