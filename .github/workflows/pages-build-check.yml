@@ -62,13 +62,15 @@ jobs:
           python3 -m http.server 4173 --bind 127.0.0.1 --directory /tmp/conutway-www >/tmp/conutway-http.log 2>&1 &
           SERVER_PID=$!
           trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+          READY=0
           for n in $(seq 1 20); do
-            if curl -fsS http://127.0.0.1:4173/conutway/ >/dev/null; then break; fi
+            if curl -fsS http://127.0.0.1:4173/conutway/ >/dev/null; then READY=1; break; fi
             sleep 0.25
           done
-          git show origin/qa/live-pages-audit:.github/scripts/live-pages-audit.mjs > /tmp/local-pages-audit.mjs
-          sed -i 's#https://stepoil-debug.github.io/conutway/#http://127.0.0.1:4173/conutway/#g' /tmp/local-pages-audit.mjs
-          NODE_PATH="$PWD/node_modules" node /tmp/local-pages-audit.mjs
+          test "$READY" -eq 1
+          git show origin/qa/live-pages-audit:.github/scripts/live-pages-audit.mjs > .github/scripts/local-pages-audit.mjs
+          sed -i 's#https://stepoil-debug.github.io/conutway/#http://127.0.0.1:4173/conutway/#g' .github/scripts/local-pages-audit.mjs
+          node .github/scripts/local-pages-audit.mjs
 
       - name: Guardar evidências da auditoria
         if: always()
