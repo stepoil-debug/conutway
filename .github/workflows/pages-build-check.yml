@@ -1,4 +1,4 @@
-name: Validar reconstrução completa do frontend CONUTWAY
+name: Validar build e navegação do CONUTWAY
 
 on:
   pull_request:
@@ -9,140 +9,74 @@ permissions:
   contents: read
 
 jobs:
-  recover:
+  build-and-browser:
     runs-on: ubuntu-latest
+    timeout-minutes: 12
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Baixar repositório
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Recuperar primeira parte pelo bootstrap XZ/TAR
+      - name: Recuperar referências preservadas
         shell: bash
         run: |
           set -euo pipefail
-          REF='origin/main'
-          mapfile -t PARTS < <(git ls-tree -r --name-only "$REF" .bootstrap | grep -E '^\.bootstrap/part-[0-9]+$' | sort -V)
-          : > /tmp/bootstrap.b64
-          for part in "${PARTS[@]}"; do
-            content="$(git show "$REF:$part" | tr -d '\r\n\t ')"
-            [ "$content" = "PLACEHOLDER" ] && continue
-            printf '%s' "$content" >> /tmp/bootstrap.b64
+          git fetch --no-tags origin refs/heads/fix/pages-bundle-integrity:refs/remotes/origin/fix/pages-bundle-integrity
+          git fetch --no-tags origin refs/heads/qa/live-pages-audit:refs/remotes/origin/qa/live-pages-audit
+
+      - name: Reconstruir frontend
+        run: python3 .github/scripts/recover_pages.py _site
+
+      - name: Preparar GitHub Pages
+        run: python3 .github/scripts/prepare_pages.py _site
+
+      - name: Validar arquivos finais
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in index.html 404.html app.js styles.css storage.js permissions.js; do test -s "_site/$f"; done
+          grep -q '<base href="/conutway/">' _site/index.html
+          grep -q 'const serverStorageAllowed = () => false;' _site/app.js
+          node --check _site/app.js
+          node --check _site/storage.js
+          node --check _site/permissions.js
+          echo "files=$(find _site -type f | wc -l)"
+          du -sh _site
+
+      - name: Preparar navegador de teste
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Auditar navegação no build local
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/conutway-www && mkdir -p /tmp/conutway-www/conutway
+          cp -a _site/. /tmp/conutway-www/conutway/
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory /tmp/conutway-www >/tmp/conutway-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+          for n in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:4173/conutway/ >/dev/null; then break; fi
+            sleep 0.25
           done
-          python3 - <<'PY'
-          from pathlib import Path
-          import base64, lzma
-          s=Path('/tmp/bootstrap.b64').read_text().strip()
-          s += '='*((-len(s))%4)
-          raw=base64.b64decode(s, validate=True)
-          dec=lzma.LZMADecompressor(format=lzma.FORMAT_XZ)
-          out=dec.decompress(raw)
-          print('tar_bytes=',len(out),'xz_eof=',dec.eof)
-          Path('/tmp/recovered.tar').write_bytes(out)
-          PY
-          rm -rf /tmp/site && mkdir -p /tmp/site
-          set +e
-          tar -xf /tmp/recovered.tar -C /tmp/site --ignore-zeros --warning=no-unknown-keyword
-          echo "tar_exit=$?"
-          set -e
-          echo "tar_files=$(find /tmp/site -type f | wc -l)"
+          git show origin/qa/live-pages-audit:.github/scripts/live-pages-audit.mjs > /tmp/local-pages-audit.mjs
+          sed -i 's#https://stepoil-debug.github.io/conutway/#http://127.0.0.1:4173/conutway/#g' /tmp/local-pages-audit.mjs
+          NODE_PATH="$PWD/node_modules" node /tmp/local-pages-audit.mjs
 
-      - name: Reconstruir ZIP fragmentado e recuperar membros intactos
-        shell: bash
-        run: |
-          set -euo pipefail
-          PREFIX_REF='origin/fix/pages-bundle-integrity'
-          mapfile -t PARTS < <(git ls-tree -r --name-only "$PREFIX_REF" .pages-bundle | grep -E '^\.pages-bundle/part-[0-9]+$' | sort -V)
-          : > /tmp/zip-fragment.b64
-          for part in "${PARTS[@]}"; do git show "$PREFIX_REF:$part" | tr -d '\r\n\t ' >> /tmp/zip-fragment.b64; done
-          git show origin/main:conutway-pages-ready.b64 | tr -d '\r\n\t ' >> /tmp/zip-fragment.b64
-
-          python3 - <<'PY'
-          from pathlib import Path
-          import base64, io, zipfile, struct, zlib, binascii, os
-
-          s=Path('/tmp/zip-fragment.b64').read_text().strip()
-          s += '='*((-len(s))%4)
-          raw=base64.b64decode(s, validate=True)
-          zf=zipfile.ZipFile(io.BytesIO(raw))
-          infos={i.filename:i for i in zf.infolist()}
-          print('central_members=',len(infos),sorted(infos))
-
-          # Varre somente local headers que de fato sobreviveram nos fragmentos atuais.
-          local={}
-          pos=0
-          while True:
-              off=raw.find(b'PK\x03\x04',pos)
-              if off<0: break
-              if off+30>len(raw): break
-              try:
-                  sig,ver,flag,method,mtime,mdate,crc,csize,usize,nlen,xlen=struct.unpack_from('<4s5H3L2H',raw,off)
-                  name_b=raw[off+30:off+30+nlen]
-                  name=name_b.decode('utf-8' if flag & 0x800 else 'cp437')
-                  if name in infos:
-                      local[name]=off
-              except Exception:
-                  pass
-              pos=off+4
-          print('local_headers_survived=',len(local),sorted(local))
-
-          outroot=Path('/tmp/zip-recovered')
-          outroot.mkdir(parents=True,exist_ok=True)
-          recovered=[]
-          failed=[]
-          for name,info in infos.items():
-              off=local.get(name)
-              if off is None:
-                  failed.append((name,'header_missing'))
-                  continue
-              sig,ver,flag,method,mtime,mdate,crc_l,csize_l,usize_l,nlen,xlen=struct.unpack_from('<4s5H3L2H',raw,off)
-              data_start=off+30+nlen+xlen
-              csize=info.compress_size
-              comp=raw[data_start:data_start+csize]
-              if len(comp)!=csize:
-                  failed.append((name,f'compressed_truncated {len(comp)}/{csize}'))
-                  continue
-              try:
-                  if info.compress_type==zipfile.ZIP_STORED:
-                      data=comp
-                  elif info.compress_type==zipfile.ZIP_DEFLATED:
-                      data=zlib.decompress(comp,-15)
-                  else:
-                      failed.append((name,f'unsupported_method {info.compress_type}'))
-                      continue
-              except Exception as e:
-                  failed.append((name,f'decompress {type(e).__name__}: {e}'))
-                  continue
-              crc=binascii.crc32(data)&0xffffffff
-              if len(data)!=info.file_size or crc!=info.CRC:
-                  failed.append((name,f'validation size={len(data)}/{info.file_size} crc={crc:08x}/{info.CRC:08x}'))
-                  continue
-              p=outroot/name
-              p.parent.mkdir(parents=True,exist_ok=True)
-              p.write_bytes(data)
-              recovered.append((name,len(data),off))
-          print('RECOVERED',recovered)
-          print('FAILED',failed)
-          if not recovered:
-              raise SystemExit('Nenhum membro do ZIP pôde ser recuperado.')
-          PY
-
-          echo "zip_recovered=$(find /tmp/zip-recovered -type f | wc -l)"
-          find /tmp/zip-recovered -type f -printf '%P %s bytes\n' | sort
-
-      - name: Combinar fontes e validar frontend
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/site/app
-          cp -a /tmp/zip-recovered/. /tmp/site/app/ 2>/dev/null || true
-          APP_DIR=/tmp/site/app
-          echo "combined_files=$(find "$APP_DIR" -type f | wc -l)"
-          find "$APP_DIR" -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
-          for f in index.html app.js styles.css storage.js permissions.js; do
-            echo "$f bytes=$(stat -c%s "$APP_DIR/$f" 2>/dev/null || echo 0)"
-            test -s "$APP_DIR/$f"
-          done
-          node --check "$APP_DIR/app.js"
-          node --check "$APP_DIR/storage.js"
-          node --check "$APP_DIR/permissions.js"
-          echo FRONTEND_COMPLETO_OK
+      - name: Guardar evidências da auditoria
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conutway-pr-browser-audit
+          path: |
+            live-pages-audit.json
+            live-pages-audit.png
+          if-no-files-found: warn
+          retention-days: 7
