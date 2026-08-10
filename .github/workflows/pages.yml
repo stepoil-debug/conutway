@@ -7,6 +7,7 @@ on:
       - '.bootstrap/**'
       - 'conutway-pages-ready.b64'
       - '.github/pages/**'
+      - '.login-assets/**'
       - '.github/scripts/recover_pages.py'
       - '.github/scripts/prepare_pages.py'
       - '.github/scripts/pages-login-audit.mjs'
@@ -43,20 +44,51 @@ jobs:
       - name: Preparar modo GitHub Pages
         run: python3 .github/scripts/prepare_pages.py _site
 
-      - name: Validar site final e login premium autocontido
+      - name: Montar imagem enviada para o hero
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _site/assets
+          cat \
+            .login-assets/v9b/part00.b64 \
+            .login-assets/v9b/part01.b64 \
+            .login-assets/v9b/part02.b64 \
+            .login-assets/v9b/part03.b64 \
+            .login-assets/v9b/part04.b64 \
+            .login-assets/v9b/part05.b64 \
+            .login-assets/v9b/part06.b64 \
+            .login-assets/v9b/part07a.b64 \
+            .login-assets/v9b/part07b.b64 \
+            .login-assets/v9b/part08a.b64 \
+            .login-assets/v9b/part08b.b64 \
+            | tr -d '\r\n' | base64 --decode > _site/assets/conutway-hero-user-v9.webp
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          p = Path('_site/assets/conutway-hero-user-v9.webp')
+          b = p.read_bytes()
+          assert len(b) == 49512, f'tamanho inesperado: {len(b)}'
+          assert b[:4] == b'RIFF' and b[8:12] == b'WEBP', 'arquivo não é WebP'
+          digest = hashlib.sha256(b).hexdigest()
+          assert digest == '708d0186fe79455e3fe8e99da04830235b5082d3690436772031e3855a42e062', digest
+          print('hero_usuario_ok bytes=', len(b), 'sha256=', digest)
+          PY
+
+      - name: Validar site final e login com imagem real
         shell: bash
         run: |
           set -euo pipefail
           for f in index.html login.html 404.html app.js styles.css storage.js permissions.js; do test -s "_site/$f"; done
+          test -s _site/assets/conutway-hero-user-v9.webp
           grep -q '<base href="/conutway/">' _site/index.html
           grep -q 'id="pagesAuthGuard"' _site/index.html
           grep -q 'id="pagesLogoutHandler"' _site/index.html
           grep -q 'id="loginForm"' _site/login.html
-          grep -q 'premium-inline-v8' _site/login.html
-          grep -q 'class="hero-art"' _site/login.html
-          grep -q 'class="logo"' _site/login.html
-          grep -q 'BRASIL' _site/login.html
-          grep -q 'CHINA' _site/login.html
+          grep -q 'premium-user-hero-v9' _site/login.html
+          grep -q 'conutway-hero-user-v9.webp' _site/login.html
+          grep -q 'class="hero-image"' _site/login.html
+          grep -q 'CONUTWAY' _site/login.html
+          grep -q 'China ↔ Brasil' _site/login.html
           grep -q "username!=='admin'||password!=='admin'" _site/login.html
           grep -q 'const serverStorageAllowed = () => false;' _site/app.js
           grep -q 'username: "admin"' _site/app.js
