@@ -3,424 +3,304 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#08111d" />
+  <meta name="theme-color" content="#07111e" />
   <base href="/conutway/" />
   <title>CONUTWAY TEZA | Acesso</title>
   <style>
     :root {
       color-scheme: dark;
-      --bg: #07101b;
-      --bg-2: #0a1727;
-      --panel: rgba(12, 25, 41, .82);
-      --panel-strong: rgba(8, 18, 31, .94);
-      --line: rgba(148, 184, 215, .16);
-      --line-strong: rgba(124, 194, 255, .28);
-      --text: #f6f9fc;
-      --muted: #9fb1c5;
-      --blue: #2d8fe8;
-      --blue-2: #64b9ff;
-      --blue-3: #0f4c81;
-      --danger: #ff7b88;
-      --success: #6ce0b5;
-      --shadow: 0 28px 80px rgba(0, 0, 0, .36);
+      --bg: #07111e;
+      --panel: rgba(8, 22, 37, .88);
+      --line: rgba(140, 184, 222, .18);
+      --line-strong: rgba(101, 185, 255, .30);
+      --text: #f7fbff;
+      --muted: #9bb0c4;
+      --blue: #1e8af0;
+      --blue-2: #55b7ff;
+      --success: #69dfb1;
+      --danger: #ff7f89;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
-
     * { box-sizing: border-box; }
     html, body { min-height: 100%; }
     body {
       margin: 0;
       min-height: 100vh;
       color: var(--text);
-      background:
-        radial-gradient(circle at 18% 18%, rgba(45, 143, 232, .18), transparent 28rem),
-        radial-gradient(circle at 86% 78%, rgba(15, 76, 129, .24), transparent 32rem),
-        linear-gradient(135deg, #050b13 0%, #08111d 42%, #0a1727 100%);
-      overflow-x: hidden;
+      background: radial-gradient(circle at 15% 20%, rgba(35,132,216,.15), transparent 26rem), linear-gradient(135deg, #040a12 0%, #07111e 52%, #08192a 100%);
     }
-
     body::before {
       content: "";
       position: fixed;
       inset: 0;
       pointer-events: none;
-      opacity: .34;
-      background-image:
-        linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
-      background-size: 56px 56px;
-      mask-image: linear-gradient(90deg, #000 0%, rgba(0,0,0,.92) 58%, transparent 100%);
+      opacity: .24;
+      background-image: linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px);
+      background-size: 54px 54px;
     }
-
-    .login-shell {
+    .shell {
       position: relative;
       min-height: 100vh;
       display: grid;
-      grid-template-columns: minmax(0, 1.14fr) minmax(430px, .86fr);
+      grid-template-columns: minmax(0, 1.18fr) minmax(420px, .82fr);
+      overflow: hidden;
       isolation: isolate;
     }
-
-    .brand-side {
+    .visual {
       position: relative;
       min-height: 100vh;
-      padding: clamp(36px, 5vw, 78px);
+      padding: clamp(34px, 4.4vw, 70px);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       overflow: hidden;
-      border-right: 1px solid var(--line);
+      border-right: 1px solid rgba(142,181,216,.14);
+      background: #06111e;
     }
-
-    .brand-side::before,
-    .brand-side::after {
+    .hero {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+    }
+    .hero img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center center;
+      filter: saturate(1.06) contrast(1.03) brightness(.82);
+      transform: scale(1.018);
+    }
+    .hero::after {
       content: "";
       position: absolute;
-      border: 1px solid rgba(100, 185, 255, .14);
-      border-radius: 50%;
-      pointer-events: none;
+      inset: 0;
+      background:
+        linear-gradient(90deg, rgba(3,11,20,.92) 0%, rgba(3,11,20,.76) 32%, rgba(3,11,20,.38) 68%, rgba(3,11,20,.68) 100%),
+        linear-gradient(180deg, rgba(3,11,20,.28) 0%, rgba(3,11,20,.18) 48%, rgba(3,11,20,.76) 100%);
     }
-    .brand-side::before {
-      width: 720px;
-      height: 720px;
-      right: -330px;
-      top: 50%;
-      transform: translateY(-50%);
-      box-shadow:
-        0 0 0 72px rgba(100,185,255,.025),
-        0 0 0 144px rgba(100,185,255,.018),
-        0 0 0 216px rgba(100,185,255,.012);
+    .visual-top, .visual-copy, .visual-bottom { position: relative; z-index: 2; }
+    .visual-top { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
+    .logo-card {
+      width: min(315px, 74vw);
+      padding: 6px 8px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 17px;
+      background: rgba(244,238,219,.96);
+      box-shadow: 0 18px 50px rgba(0,0,0,.30);
+      backdrop-filter: blur(10px);
     }
-    .brand-side::after {
-      width: 18px;
-      height: 18px;
-      right: 112px;
-      top: 31%;
-      background: var(--blue-2);
-      border: 6px solid rgba(100,185,255,.14);
-      box-shadow: 0 0 36px rgba(100,185,255,.58);
-    }
-
-    .brand-top,
-    .brand-content,
-    .brand-footer { position: relative; z-index: 2; }
-
-    .brand-logo {
-      display: inline-flex;
-      width: min(365px, 68vw);
-      filter: drop-shadow(0 14px 34px rgba(0,0,0,.26));
-    }
-    .brand-logo img {
-      display: block;
-      width: 100%;
-      height: auto;
-    }
-
-    .brand-kicker {
+    .logo-card img { display: block; width: 100%; height: auto; border-radius: 12px; }
+    .kicker {
       display: inline-flex;
       align-items: center;
       gap: 9px;
-      margin-top: 20px;
-      padding: 8px 12px;
-      border: 1px solid var(--line-strong);
+      padding: 8px 13px;
+      border: 1px solid rgba(100,185,255,.25);
       border-radius: 999px;
-      color: #b9dcfb;
-      background: rgba(19, 61, 96, .22);
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: .14em;
+      background: rgba(4,18,32,.60);
+      color: #d8efff;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .12em;
       text-transform: uppercase;
       backdrop-filter: blur(12px);
     }
-    .brand-kicker::before {
+    .kicker::before {
       content: "";
       width: 7px;
       height: 7px;
       border-radius: 50%;
       background: var(--success);
-      box-shadow: 0 0 14px rgba(108,224,181,.8);
+      box-shadow: 0 0 12px rgba(105,223,177,.78);
     }
-
-    .brand-content { max-width: 720px; margin: 68px 0; }
-    .brand-content h1 {
+    .visual-copy { max-width: 720px; margin: 42px 0 26px; }
+    .visual-copy h1 {
       margin: 0;
       max-width: 700px;
-      font-size: clamp(46px, 5.7vw, 84px);
+      font-size: clamp(42px, 5.2vw, 76px);
       line-height: .98;
-      letter-spacing: -.055em;
-      font-weight: 780;
+      letter-spacing: -.052em;
+      font-weight: 800;
+      text-shadow: 0 12px 35px rgba(0,0,0,.40);
     }
-    .brand-content h1 span {
-      display: block;
-      margin-top: 10px;
-      color: var(--blue-2);
+    .visual-copy h1 span { display: block; margin-top: 10px; color: var(--blue-2); }
+    .visual-copy p {
+      margin: 24px 0 0;
+      max-width: 620px;
+      color: #d9e4ee;
+      font-size: clamp(15px, 1.3vw, 18px);
+      line-height: 1.68;
+      text-shadow: 0 8px 26px rgba(0,0,0,.38);
     }
-    .brand-content p {
-      max-width: 610px;
-      margin: 28px 0 0;
-      color: #aebed0;
-      font-size: clamp(16px, 1.45vw, 20px);
-      line-height: 1.72;
-    }
-
-    .capabilities {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 34px;
-    }
-    .capability {
+    .chips { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+    .chip {
       display: inline-flex;
       align-items: center;
       gap: 8px;
       min-height: 38px;
       padding: 0 13px;
-      border: 1px solid rgba(148,184,215,.14);
+      border: 1px solid rgba(148,184,215,.18);
       border-radius: 11px;
-      background: rgba(8, 20, 34, .44);
-      color: #c1d2e3;
+      background: rgba(5,18,31,.58);
+      color: #eef7ff;
       font-size: 12px;
-      font-weight: 650;
+      font-weight: 750;
       letter-spacing: .05em;
+      backdrop-filter: blur(10px);
     }
-    .capability i {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--blue-2);
-      box-shadow: 0 0 10px rgba(100,185,255,.62);
+    .chip i { width: 6px; height: 6px; border-radius: 50%; background: var(--blue-2); box-shadow: 0 0 10px rgba(85,183,255,.70); }
+    .statement {
+      margin-top: 24px;
+      width: min(100%, 680px);
+      padding: 17px 20px;
+      border: 1px solid rgba(148,184,215,.16);
+      border-radius: 17px;
+      background: rgba(5,17,29,.60);
+      box-shadow: 0 14px 34px rgba(0,0,0,.20);
+      backdrop-filter: blur(12px);
     }
-
-    .brand-footer {
+    .statement strong { display: block; color: #fff; font-size: 14px; letter-spacing: .18em; text-transform: uppercase; }
+    .statement span { display: block; margin-top: 6px; color: #a9bfd2; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+    .visual-bottom {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      gap: 20px;
-      color: #71869c;
+      gap: 18px;
+      color: #c9d8e5;
       font-size: 12px;
-      letter-spacing: .05em;
+      letter-spacing: .04em;
+      text-shadow: 0 6px 18px rgba(0,0,0,.5);
     }
-    .brand-footer strong { color: #98adc1; font-weight: 650; }
+    .visual-bottom strong { color: #fff; }
 
-    .login-side {
+    .access {
       min-height: 100vh;
       display: grid;
       place-items: center;
-      padding: clamp(28px, 4.5vw, 72px);
-      background: linear-gradient(180deg, rgba(10, 22, 37, .62), rgba(5, 12, 21, .84));
+      padding: clamp(28px, 4vw, 64px);
+      background: linear-gradient(180deg, rgba(8,20,34,.82), rgba(4,11,19,.94));
       backdrop-filter: blur(18px);
     }
-
-    .login-card {
+    .card {
       width: min(100%, 470px);
-      padding: clamp(30px, 4vw, 46px);
-      border: 1px solid rgba(151, 190, 224, .16);
+      padding: clamp(30px, 3.4vw, 44px);
+      border: 1px solid rgba(146,188,224,.22);
       border-radius: 28px;
-      background:
-        linear-gradient(180deg, rgba(18, 36, 58, .78), rgba(7, 17, 29, .92));
-      box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.035);
-      backdrop-filter: blur(26px);
+      background: linear-gradient(180deg, rgba(17,37,60,.90), rgba(6,17,29,.96));
+      box-shadow: 0 28px 76px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.04);
+      backdrop-filter: blur(24px);
     }
-
-    .security-badge {
+    .security {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      color: #9ecbf0;
+      color: #9fd0f6;
       font-size: 11px;
       font-weight: 800;
       letter-spacing: .14em;
       text-transform: uppercase;
     }
-    .security-badge svg { width: 16px; height: 16px; }
-
-    .login-card h2 {
-      margin: 18px 0 8px;
-      font-size: clamp(30px, 3vw, 40px);
-      line-height: 1.08;
-      letter-spacing: -.035em;
-    }
-    .login-card > p {
-      margin: 0 0 30px;
-      color: var(--muted);
-      line-height: 1.6;
-      font-size: 14px;
-    }
-
+    .security svg { width: 16px; height: 16px; }
+    .card h2 { margin: 18px 0 8px; font-size: clamp(32px, 3vw, 42px); line-height: 1.05; letter-spacing: -.04em; }
+    .card > p { margin: 0 0 30px; color: var(--muted); font-size: 14px; line-height: 1.62; }
     .field { display: grid; gap: 9px; margin-top: 17px; }
-    .field label {
-      color: #c8d7e6;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: .035em;
-    }
-    .input-wrap {
-      position: relative;
-      display: flex;
-      align-items: center;
-    }
-    .input-wrap > svg {
-      position: absolute;
-      left: 15px;
-      width: 18px;
-      height: 18px;
-      color: #6f8aa4;
-      pointer-events: none;
-    }
+    .field label { color: #d2deea; font-size: 12px; font-weight: 750; }
+    .input-wrap { position: relative; display: flex; align-items: center; }
+    .input-wrap > svg { position: absolute; left: 15px; width: 18px; height: 18px; color: #7892aa; pointer-events: none; }
     .input-wrap input {
       width: 100%;
-      height: 54px;
+      height: 55px;
       padding: 0 48px 0 45px;
-      border: 1px solid rgba(146, 180, 211, .17);
+      border: 1px solid rgba(146,180,211,.18);
       border-radius: 14px;
       outline: none;
-      color: #edf6ff;
-      background: rgba(3, 11, 20, .52);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.02);
+      color: #f3f8fc;
+      background: rgba(3,11,20,.58);
       font: inherit;
-      transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+      transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
     }
     .input-wrap input::placeholder { color: #60768d; }
-    .input-wrap input:focus {
-      border-color: rgba(100, 185, 255, .58);
-      background: rgba(7, 17, 29, .7);
-      box-shadow: 0 0 0 4px rgba(45, 143, 232, .11);
-    }
-
-    .password-toggle {
-      position: absolute;
-      right: 8px;
-      width: 38px;
-      height: 38px;
-      display: grid;
-      place-items: center;
-      border: 0;
-      border-radius: 10px;
-      color: #7f98b0;
-      background: transparent;
-      cursor: pointer;
-    }
-    .password-toggle:hover { color: #cce8ff; background: rgba(100,185,255,.08); }
+    .input-wrap input:focus { border-color: rgba(85,183,255,.60); background: rgba(7,17,29,.78); box-shadow: 0 0 0 4px rgba(30,138,240,.12); }
+    .password-toggle { position: absolute; right: 8px; width: 38px; height: 38px; display: grid; place-items: center; border: 0; border-radius: 10px; color: #7e98b1; background: transparent; cursor: pointer; }
+    .password-toggle:hover { color: #d4edff; background: rgba(85,183,255,.08); }
     .password-toggle svg { width: 18px; height: 18px; }
-
-    .login-meta {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-top: 15px;
-      color: #758ca3;
-      font-size: 11px;
-    }
-    .login-meta span:last-child { color: #94b7d7; }
-
-    .error-message {
-      min-height: 20px;
-      margin-top: 13px;
-      color: var(--danger);
-      font-size: 12px;
-      font-weight: 650;
-      opacity: 0;
-      transform: translateY(-3px);
-      transition: opacity .18s ease, transform .18s ease;
-    }
-    .error-message.visible { opacity: 1; transform: translateY(0); }
-
-    .submit-btn {
+    .meta { display: flex; justify-content: space-between; gap: 12px; margin-top: 14px; color: #748a9f; font-size: 11px; }
+    .meta span:last-child { color: #98b9d5; }
+    .error { min-height: 20px; margin-top: 13px; color: var(--danger); font-size: 12px; font-weight: 700; opacity: 0; transform: translateY(-3px); transition: .18s ease; }
+    .error.visible { opacity: 1; transform: translateY(0); }
+    .submit {
       width: 100%;
       height: 56px;
       margin-top: 5px;
       border: 0;
       border-radius: 14px;
-      color: white;
-      background: linear-gradient(135deg, #1478ca 0%, #2d8fe8 52%, #54adf5 100%);
-      box-shadow: 0 16px 30px rgba(25, 111, 183, .28), inset 0 1px 0 rgba(255,255,255,.2);
+      color: #fff;
+      background: linear-gradient(135deg, #1175c9 0%, #1e8af0 55%, #55b7ff 100%);
+      box-shadow: 0 16px 30px rgba(25,111,183,.30), inset 0 1px 0 rgba(255,255,255,.18);
       font: inherit;
-      font-weight: 780;
-      letter-spacing: .015em;
+      font-weight: 800;
       cursor: pointer;
-      transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
+      transition: transform .18s ease, filter .18s ease;
     }
-    .submit-btn:hover { transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 20px 36px rgba(25,111,183,.34); }
-    .submit-btn:active { transform: translateY(0); }
-    .submit-btn:disabled { opacity: .72; cursor: wait; }
-
-    .card-footer {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      margin-top: 25px;
-      padding-top: 22px;
-      border-top: 1px solid rgba(148,184,215,.1);
-      color: #647b91;
-      font-size: 11px;
-      text-align: center;
-    }
-    .card-footer span {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--success);
-      box-shadow: 0 0 12px rgba(108,224,181,.7);
-    }
-
+    .submit:hover { transform: translateY(-1px); filter: brightness(1.06); }
+    .submit:disabled { opacity: .72; cursor: wait; }
+    .footer { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 24px; padding-top: 22px; border-top: 1px solid rgba(148,184,215,.10); color: #667d93; font-size: 11px; }
+    .footer i { width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 12px rgba(105,223,177,.72); }
     .shake { animation: shake .32s ease; }
-    @keyframes shake {
-      0%,100% { transform: translateX(0); }
-      25% { transform: translateX(-7px); }
-      75% { transform: translateX(7px); }
-    }
+    @keyframes shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-7px); } 75% { transform: translateX(7px); } }
 
     @media (max-width: 980px) {
-      .login-shell { grid-template-columns: 1fr; }
-      .brand-side { min-height: 46vh; padding-bottom: 34px; border-right: 0; border-bottom: 1px solid var(--line); }
-      .brand-content { margin: 46px 0 22px; }
-      .brand-content h1 { font-size: clamp(42px, 10vw, 68px); }
-      .brand-footer { display: none; }
-      .login-side { min-height: 54vh; }
+      .shell { grid-template-columns: 1fr; }
+      .visual { min-height: 54vh; padding-bottom: 30px; border-right: 0; border-bottom: 1px solid rgba(142,181,216,.14); }
+      .visual-copy { margin: 34px 0 18px; }
+      .visual-copy h1 { font-size: clamp(40px, 10vw, 66px); }
+      .visual-bottom { display: none; }
+      .access { min-height: 46vh; }
     }
-
     @media (max-width: 620px) {
-      .brand-side { padding: 28px 22px 30px; }
-      .brand-content { margin: 38px 0 10px; }
-      .brand-content p { font-size: 15px; }
-      .capabilities { margin-top: 24px; }
-      .login-side { padding: 22px 14px 36px; }
-      .login-card { border-radius: 22px; padding: 28px 22px; }
-      .login-meta { align-items: flex-start; flex-direction: column; }
+      .visual { padding: 24px 20px 28px; min-height: 56vh; }
+      .logo-card { width: 230px; }
+      .visual-copy { margin-top: 30px; }
+      .visual-copy p { font-size: 15px; }
+      .statement { padding: 15px 16px; }
+      .statement strong { font-size: 12px; line-height: 1.45; }
+      .statement span { font-size: 10px; line-height: 1.45; }
+      .access { padding: 20px 14px 34px; }
+      .card { padding: 28px 22px; border-radius: 22px; }
+      .meta { flex-direction: column; }
     }
   </style>
 </head>
 <body>
-  <main class="login-shell">
-    <section class="brand-side" aria-label="CONUTWAY TEZA">
-      <div class="brand-top">
-        <a class="brand-logo" href="./" aria-label="CONUTWAY TEZA">
-          <img src="assets/conutway-teza-logo-crop.svg" alt="CONUTWAY TEZA" />
-        </a>
-        <div class="brand-kicker">International Operations Workspace</div>
+  <main class="shell">
+    <section class="visual" aria-label="CONUTWAY TEZA Brasil e China">
+      <div class="hero" aria-hidden="true"><img src="assets/conutway-brazil-china-hero.svg" alt="" /></div>
+      <div class="visual-top">
+        <div class="logo-card"><img src="assets/conutway-teza-logo-original.svg" alt="CONUTWAY TEZA" /></div>
+        <div class="kicker">International Operations Workspace</div>
       </div>
-
-      <div class="brand-content">
+      <div class="visual-copy">
         <h1>Controle internacional.<span>Decisões mais seguras.</span></h1>
         <p>Um ambiente único para organizar cotações, custos, importação, fornecedores, contratos e execução com visão clara do resultado de cada operação.</p>
-        <div class="capabilities" aria-label="Principais recursos">
-          <span class="capability"><i></i> COMEX</span>
-          <span class="capability"><i></i> CUSTOS</span>
-          <span class="capability"><i></i> COTAÇÕES</span>
-          <span class="capability"><i></i> CONTROLE</span>
+        <div class="chips">
+          <span class="chip"><i></i> COMEX</span>
+          <span class="chip"><i></i> CUSTOS</span>
+          <span class="chip"><i></i> COTAÇÕES</span>
+          <span class="chip"><i></i> CONTROLE</span>
+        </div>
+        <div class="statement">
+          <strong>Conectamos o melhor de dois mundos</strong>
+          <span>Importação inteligente · Negócios sem fronteiras</span>
         </div>
       </div>
-
-      <footer class="brand-footer">
+      <div class="visual-bottom">
         <span><strong>CONUTWAY TEZA</strong> · BR Workspace</span>
         <span>China ↔ Brasil</span>
-      </footer>
+      </div>
     </section>
 
-    <section class="login-side">
-      <form id="loginForm" class="login-card" autocomplete="on" novalidate>
-        <div class="security-badge">
+    <section class="access">
+      <form id="loginForm" class="card" autocomplete="on" novalidate>
+        <div class="security">
           <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l7 3v5c0 4.8-2.9 8-7 10-4.1-2-7-5.2-7-10V6l7-3z" stroke="currentColor" stroke-width="1.7"/><path d="M9.2 12.1l1.8 1.8 3.9-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Área de acesso
         </div>
@@ -431,7 +311,7 @@
           <label for="username">Usuário</label>
           <div class="input-wrap">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.7"/><path d="M4.5 20c.8-4.1 3.3-6.2 7.5-6.2s6.7 2.1 7.5 6.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
-            <input id="username" name="username" type="text" inputmode="text" autocomplete="username" placeholder="Digite seu usuário" required autofocus />
+            <input id="username" name="username" type="text" autocomplete="username" placeholder="Digite seu usuário" required autofocus />
           </div>
         </div>
 
@@ -446,15 +326,10 @@
           </div>
         </div>
 
-        <div class="login-meta">
-          <span>Acesso restrito à equipe autorizada.</span>
-          <span>Sessão protegida no navegador</span>
-        </div>
-
-        <div id="loginError" class="error-message" role="alert" aria-live="polite">Usuário ou senha inválidos.</div>
-        <button id="submitBtn" class="submit-btn" type="submit">Entrar no workspace</button>
-
-        <div class="card-footer"><span></span> CONUTWAY TEZA · Ambiente operacional</div>
+        <div class="meta"><span>Acesso restrito à equipe autorizada.</span><span>Sessão protegida no navegador</span></div>
+        <div id="loginError" class="error" role="alert" aria-live="polite">Usuário ou senha inválidos.</div>
+        <button id="submitBtn" class="submit" type="submit">Entrar no workspace</button>
+        <div class="footer"><i></i> CONUTWAY TEZA · Ambiente operacional</div>
       </form>
     </section>
   </main>
@@ -476,9 +351,7 @@
           if (!raw) return false;
           const auth = JSON.parse(raw);
           return auth?.user === 'admin' && Number.isFinite(auth?.issuedAt) && (Date.now() - auth.issuedAt) < MAX_AGE;
-        } catch (_) {
-          return false;
-        }
+        } catch (_) { return false; }
       };
 
       if (hasValidSession()) {
@@ -499,9 +372,9 @@
         event.preventDefault();
         errorBox.classList.remove('visible');
         form.classList.remove('shake');
-
         const username = userInput.value.trim();
         const password = passwordInput.value;
+
         if (username !== 'admin' || password !== 'admin') {
           void form.offsetWidth;
           form.classList.add('shake');
@@ -512,12 +385,7 @@
 
         submitBtn.disabled = true;
         submitBtn.textContent = 'Acessando...';
-        sessionStorage.setItem(AUTH_KEY, JSON.stringify({
-          user: 'admin',
-          name: 'Administrador',
-          role: 'admin',
-          issuedAt: Date.now()
-        }));
+        sessionStorage.setItem(AUTH_KEY, JSON.stringify({ user: 'admin', name: 'Administrador', role: 'admin', issuedAt: Date.now() }));
         window.setTimeout(() => window.location.replace('./'), 180);
       });
     })();
