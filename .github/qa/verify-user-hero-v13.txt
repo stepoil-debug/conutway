@@ -1,0 +1,1 @@
+QA final baseado no main atual: validar imagem original enviada, login, workspace e logout.
