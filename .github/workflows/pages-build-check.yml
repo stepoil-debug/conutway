@@ -1,4 +1,4 @@
-name: Validar prefixo preservado do CONUTWAY
+name: Diagnosticar montagem completa do CONUTWAY
 
 on:
   pull_request:
@@ -15,14 +15,108 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Calcular hash do bundle preservado
+
+      - name: Reconstruir e validar candidatos
         shell: bash
         run: |
           set -euo pipefail
-          REF='origin/fix/pages-bundle-integrity'
-          mapfile -t PARTS < <(git ls-tree -r --name-only "$REF" .pages-bundle | grep -E '^\.pages-bundle/part-[0-9]+$' | sort -V)
+          PREFIX_REF='origin/fix/pages-bundle-integrity'
+          SUFFIX_REF='origin/main'
+
+          mapfile -t PARTS < <(git ls-tree -r --name-only "$PREFIX_REF" .pages-bundle | grep -E '^\.pages-bundle/part-[0-9]+$' | sort -V)
           : > /tmp/prefix.b64
-          for part in "${PARTS[@]}"; do git show "$REF:$part" | tr -d '\r\n\t ' >> /tmp/prefix.b64; done
-          echo "chars=$(wc -c < /tmp/prefix.b64)"
-          echo "sha256=$(sha256sum /tmp/prefix.b64 | awk '{print $1}')"
-          echo "tail=$(tail -c 64 /tmp/prefix.b64)"
+          for part in "${PARTS[@]}"; do
+            git show "$PREFIX_REF:$part" | tr -d '\r\n\t ' >> /tmp/prefix.b64
+          done
+          git show "$SUFFIX_REF:conutway-pages-ready.b64" | tr -d '\r\n\t ' > /tmp/suffix.b64
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, io, zipfile, hashlib, re
+
+          prefix = Path('/tmp/prefix.b64').read_text().strip()
+          suffix = Path('/tmp/suffix.b64').read_text().strip()
+
+          valid = re.compile(r'^[A-Za-z0-9+/=]+$')
+          print('prefix_len=', len(prefix), 'mod4=', len(prefix) % 4, 'sha256=', hashlib.sha256(prefix.encode()).hexdigest())
+          print('suffix_len=', len(suffix), 'mod4=', len(suffix) % 4, 'sha256=', hashlib.sha256(suffix.encode()).hexdigest())
+          print('prefix_head=', prefix[:32])
+          print('prefix_tail=', prefix[-64:])
+          print('suffix_head=', suffix[:64])
+          print('suffix_tail=', suffix[-64:])
+          print('prefix_valid=', bool(valid.fullmatch(prefix)))
+          print('suffix_valid=', bool(valid.fullmatch(suffix)))
+
+          def longest_overlap(a, b):
+              # Maior sufixo de a que é prefixo de b usando KMP.
+              s = b + '\0' + a[-min(len(a), len(b)):]
+              pi = [0] * len(s)
+              for i in range(1, len(s)):
+                  j = pi[i-1]
+                  while j and s[i] != s[j]:
+                      j = pi[j-1]
+                  if s[i] == s[j]:
+                      j += 1
+                  pi[i] = j
+              return min(pi[-1], len(b), len(a))
+
+          overlap = longest_overlap(prefix, suffix)
+          print('overlap=', overlap)
+          if overlap:
+              print('overlap_text=', suffix[:min(overlap, 80)])
+
+          candidates = {
+              'direct': prefix + suffix,
+              'overlap_join': prefix + suffix[overlap:],
+          }
+
+          # Também tenta pequenos ajustes de fronteira para detectar 1-4 caracteres duplicados/perdidos.
+          for drop_p in range(0, 5):
+              for drop_s in range(0, 5):
+                  candidates[f'dropP{drop_p}_dropS{drop_s}'] = prefix[:-drop_p or None] + suffix[drop_s:]
+
+          seen = set()
+          success = []
+          for name, data in candidates.items():
+              key = hashlib.sha256(data.encode()).hexdigest()
+              if key in seen:
+                  continue
+              seen.add(key)
+              try:
+                  raw = base64.b64decode(data, validate=True)
+              except Exception as e:
+                  print(name, 'decode=FAIL', type(e).__name__, str(e), 'len=', len(data), 'mod4=', len(data)%4)
+                  continue
+              ok = zipfile.is_zipfile(io.BytesIO(raw))
+              print(name, 'decode=OK', 'bytes=', len(raw), 'zip=', ok, 'sha256=', hashlib.sha256(raw).hexdigest())
+              if ok:
+                  with zipfile.ZipFile(io.BytesIO(raw)) as z:
+                      names = z.namelist()
+                      print(name, 'files=', len(names), 'first=', names[:10], 'last=', names[-10:])
+                      required = {'index.html','app.js','styles.css','storage.js','permissions.js'}
+                      missing = sorted(required - set(names))
+                      print(name, 'missing_required=', missing)
+                      if not missing:
+                          Path('/tmp/site.b64').write_text(data)
+                          Path('/tmp/site.zip').write_bytes(raw)
+                          success.append(name)
+
+          print('SUCCESS=', success)
+          if not success:
+              raise SystemExit('Nenhuma combinação produziu um ZIP válido com os arquivos obrigatórios.')
+          PY
+
+      - name: Extrair e validar site recuperado
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/site && mkdir -p /tmp/site
+          unzip -q /tmp/site.zip -d /tmp/site
+          find /tmp/site -maxdepth 2 -type f | sort
+          for f in index.html app.js styles.css storage.js permissions.js; do
+            test -s "/tmp/site/$f"
+          done
+          node --check /tmp/site/app.js
+          node --check /tmp/site/storage.js
+          node --check /tmp/site/permissions.js
+          echo "SITE_RECUPERADO_OK"
