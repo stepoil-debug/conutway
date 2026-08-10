@@ -198,6 +198,30 @@
       const errorBox = document.getElementById('loginError');
       const submitBtn = document.getElementById('submitBtn');
       const toggle = document.getElementById('passwordToggle');
+      const heroPhoto = document.querySelector('.hero-photo');
+
+      // GitHub Pages/CSP pode impedir que um WebP embutido seja renderizado
+      // quando ele está dentro de um SVG externo. Carregamos o mesmo asset,
+      // extraímos o data URI e aplicamos o WebP diretamente como background.
+      // Assim a arte China ↔ Brasil permanece local ao projeto e não quebra.
+      if (heroPhoto) {
+        fetch('assets/conutway-brazil-china-hero-v2.svg', { cache: 'no-cache' })
+          .then((response) => {
+            if (!response.ok) throw new Error(`Hero HTTP ${response.status}`);
+            return response.text();
+          })
+          .then((svgText) => {
+            const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+            const image = doc.querySelector('image');
+            const source = image?.getAttribute('href') || image?.getAttributeNS('http://www.w3.org/1999/xlink', 'href');
+            if (!source || !source.startsWith('data:image/')) throw new Error('Hero embutido não encontrado');
+            heroPhoto.style.backgroundImage = `url("${source}")`;
+            heroPhoto.dataset.loaded = 'true';
+          })
+          .catch((error) => {
+            console.error('[CONUTWAY] Falha ao carregar hero Brasil-China:', error);
+          });
+      }
 
       const hasValidSession = () => {
         try {
