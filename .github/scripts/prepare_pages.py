@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import base64
 from pathlib import Path
 import re
 import shutil
@@ -160,9 +161,39 @@ def main() -> int:
     if ".pages-mode-banner {" not in style_text:
         style_path.write_text(style_text + css, encoding="utf-8")
 
+    # Os arquivos gráficos originais não sobreviveram íntegros ao pacote legado.
+    # Criamos uma marca vetorial local para evitar imagens quebradas e mantemos
+    # PNGs válidos nos caminhos históricos, garantindo compatibilidade com caches
+    # e referências antigas que ainda possam solicitar esses URLs.
+    assets_dir = root / "assets"
+    assets_dir.mkdir(parents=True, exist_ok=True)
+    logo_svg = """<svg xmlns="http://www.w3.org/2000/svg" width="520" height="112" viewBox="0 0 520 112" role="img" aria-label="CONUTWAY TEZA">
+  <rect width="520" height="112" rx="18" fill="white" fill-opacity="0"/>
+  <g transform="translate(8 8)">
+    <circle cx="48" cy="48" r="43" fill="#0f4c81"/>
+    <path d="M28 49c0-13 9-23 22-23 8 0 14 3 19 9l-9 8c-3-4-6-6-11-6-7 0-12 5-12 12s5 12 12 12c5 0 9-2 12-6l9 8c-5 6-12 10-20 10-13 0-22-11-22-24z" fill="white"/>
+    <path d="M67 25h11v47H67z" fill="#69b3e7" opacity=".95"/>
+  </g>
+  <text x="112" y="58" font-family="Arial, Helvetica, sans-serif" font-size="39" font-weight="700" fill="#16324f" letter-spacing="1.4">CONUTWAY</text>
+  <text x="114" y="86" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="600" fill="#0f4c81" letter-spacing="4">TEZA ERP</text>
+</svg>"""
+    (assets_dir / "conutway-teza-logo-crop.svg").write_text(logo_svg, encoding="utf-8")
+
+    # PNG transparente 1x1 válido: os caminhos históricos continuam respondendo 200,
+    # enquanto as referências visuais do frontend são direcionadas ao SVG acima.
+    png_1x1 = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl9ZVQAAAAASUVORK5CYII="
+    )
+    (assets_dir / "conutway-teza-logo-crop.png").write_bytes(png_1x1)
+    (assets_dir / "ct-mark.png").write_bytes(png_1x1)
+
     text_extensions = {
         ".html", ".htm", ".css", ".js", ".mjs", ".json",
         ".webmanifest", ".xml", ".svg", ".txt",
+    }
+    asset_replacements = {
+        "assets/conutway-teza-logo-crop.png": "assets/conutway-teza-logo-crop.svg",
+        "assets/ct-mark.png": "assets/conutway-teza-logo-crop.svg",
     }
     path_replacements = {
         'src="/assets/': f'src="{base}assets/',
@@ -189,6 +220,8 @@ def main() -> int:
         except UnicodeDecodeError:
             continue
         changed = original
+        for old, new in asset_replacements.items():
+            changed = changed.replace(old, new)
         for old, new in path_replacements.items():
             changed = changed.replace(old, new)
         if path.name in {"manifest.json", "site.webmanifest", "manifest.webmanifest"}:
