@@ -28,7 +28,7 @@ jobs:
         run: python3 .github/scripts/recover_pages.py _site
 
       - name: Preparar GitHub Pages
-        run: python3 .github/scripts/prepare_pages.py _site
+        run: python3 .github/scripts/prepare_pages_v9.py _site
 
       - name: Montar imagem enviada para o hero
         shell: bash
@@ -75,6 +75,7 @@ jobs:
           grep -q 'CONUTWAY' _site/login.html
           grep -q 'China ↔ Brasil' _site/login.html
           grep -q "username!=='admin'||password!=='admin'" _site/login.html
+          grep -q "sessionStorage.setItem('conutway.auth.v1'" _site/login.html
           grep -q 'const serverStorageAllowed = () => false;' _site/app.js
           grep -q 'username: "admin"' _site/app.js
           node --check _site/app.js
