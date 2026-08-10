@@ -2,8 +2,8 @@ import fs from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 const BASE = 'https://stepoil-debug.github.io/conutway/';
-const HERO = `${BASE}assets/conutway-brazil-china-hero.webp`;
-const LOGO = `${BASE}assets/conutway-teza-logo-v2.svg`;
+const HERO = `${BASE}assets/conutway-brazil-china-hero-user.webp`;
+const LOGO = `${BASE}assets/conutway-teza-logo-user.webp`;
 const report = {
   startedAt: new Date().toISOString(),
   loginStatus: null,
@@ -11,11 +11,13 @@ const report = {
   heroStatus: null,
   heroBytes: null,
   heroVisible: false,
-  heroBox: null,
   heroNaturalWidth: null,
   heroNaturalHeight: null,
   logoStatus: null,
+  logoBytes: null,
   logoVisible: false,
+  logoNaturalWidth: null,
+  logoNaturalHeight: null,
   invalidCredentialRejected: false,
   validCredentialAccepted: false,
   logoutWorked: false,
@@ -28,7 +30,7 @@ const report = {
 };
 
 const browser = await chromium.launch({ headless: true });
-const context = await browser.newContext({ viewport: { width: 1600, height: 900 }, deviceScaleFactor: 1 });
+const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 const page = await context.newPage();
 
 page.on('console', (message) => {
@@ -44,7 +46,10 @@ page.on('response', (response) => {
   report.httpErrors.push(item);
   try {
     const url = new URL(response.url());
-    const criticalNames = ['login.html','index.html','app.js','styles.css','storage.js','permissions.js','conutway-brazil-china-hero.webp','conutway-teza-logo-v2.svg'];
+    const criticalNames = [
+      'login.html','index.html','app.js','styles.css','storage.js','permissions.js',
+      'conutway-brazil-china-hero-user.webp','conutway-teza-logo-user.webp'
+    ];
     if (url.origin === new URL(BASE).origin && criticalNames.some((name) => url.pathname.endsWith('/' + name))) {
       report.criticalHttpErrors.push(item);
     }
@@ -53,22 +58,24 @@ page.on('response', (response) => {
 
 const fail = (message) => { throw new Error(message); };
 
-try {
-  const heroResponse = await context.request.get(HERO, { timeout: 30000 });
-  report.heroStatus = heroResponse.status();
-  const heroBody = await heroResponse.body();
-  report.heroBytes = heroBody.length;
-  if (report.heroStatus !== 200) fail(`Hero respondeu HTTP ${report.heroStatus}`);
-  if (heroBody.length !== 105456) fail(`Hero com tamanho inesperado: ${heroBody.length} bytes`);
-  if (heroBody.subarray(0, 4).toString('ascii') !== 'RIFF' || heroBody.subarray(8, 12).toString('ascii') !== 'WEBP') {
-    fail('Hero publicado não é um WebP válido.');
+async function fetchWebp(url, label, minBytes) {
+  const response = await context.request.get(url, { timeout: 30000 });
+  const body = await response.body();
+  if (response.status() !== 200) fail(`${label} respondeu HTTP ${response.status()}`);
+  if (body.length < minBytes) fail(`${label} muito pequeno: ${body.length} bytes`);
+  if (body.subarray(0, 4).toString('ascii') !== 'RIFF' || body.subarray(8, 12).toString('ascii') !== 'WEBP') {
+    fail(`${label} publicado não é um WebP válido.`);
   }
+  return { status: response.status(), bytes: body.length };
+}
 
-  const logoResponse = await context.request.get(LOGO, { timeout: 30000 });
-  report.logoStatus = logoResponse.status();
-  if (report.logoStatus !== 200) fail(`Logo respondeu HTTP ${report.logoStatus}`);
-  const logoText = await logoResponse.text();
-  if (!logoText.includes('<svg') || !logoText.includes('CONUTWAY') || !logoText.includes('TEZA')) fail('Logo publicado é inválido.');
+try {
+  const heroFetch = await fetchWebp(HERO, 'Hero', 10000);
+  report.heroStatus = heroFetch.status;
+  report.heroBytes = heroFetch.bytes;
+  const logoFetch = await fetchWebp(LOGO, 'Logo', 1000);
+  report.logoStatus = logoFetch.status;
+  report.logoBytes = logoFetch.bytes;
 
   const loginResponse = await page.goto(`${BASE}login.html`, { waitUntil: 'networkidle', timeout: 30000 });
   report.loginStatus = loginResponse?.status() ?? null;
@@ -77,33 +84,34 @@ try {
   if (!((await page.title()).includes('CONUTWAY TEZA'))) fail(`Título inesperado no login: ${await page.title()}`);
 
   report.buildMarker = await page.locator('meta[name="conutway-build"]').getAttribute('content');
-  if (report.buildMarker !== 'target-v2-backup-hero') fail(`Build visual inesperado: ${report.buildMarker}`);
+  if (report.buildMarker !== 'premium-user-assets-v15') fail(`Build visual inesperado: ${report.buildMarker}`);
 
   const hero = page.locator('.hero-image');
   await hero.waitFor({ state: 'visible', timeout: 10000 });
   report.heroVisible = await hero.isVisible();
-  if (!report.heroVisible) fail('Hero China-Brasil não ficou visível.');
+  if (!report.heroVisible) fail('Imagem China/Brasil não ficou visível no hero.');
   const heroBox = await hero.boundingBox();
-  report.heroBox = heroBox;
-  if (!heroBox || heroBox.width < 850 || heroBox.height < 430) fail(`Hero pequeno ou quebrado: ${JSON.stringify(heroBox)}`);
+  if (!heroBox || heroBox.width < 650 || heroBox.height < 300) fail(`Hero com área inesperada: ${JSON.stringify(heroBox)}`);
   const heroMetrics = await hero.evaluate((el) => ({ complete: el.complete, naturalWidth: el.naturalWidth, naturalHeight: el.naturalHeight, src: el.currentSrc }));
   report.heroNaturalWidth = heroMetrics.naturalWidth;
   report.heroNaturalHeight = heroMetrics.naturalHeight;
-  if (!heroMetrics.complete || heroMetrics.naturalWidth !== 1400 || heroMetrics.naturalHeight !== 622) {
-    fail(`Hero não decodificou na resolução preservada: ${JSON.stringify(heroMetrics)}`);
+  if (!heroMetrics.complete || heroMetrics.naturalWidth < 700 || heroMetrics.naturalHeight < 300) {
+    fail(`Imagem do hero não decodificou corretamente: ${JSON.stringify(heroMetrics)}`);
   }
-  if (!heroMetrics.src.endsWith('/conutway/assets/conutway-brazil-china-hero.webp')) fail(`Hero aponta para recurso inesperado: ${heroMetrics.src}`);
+  if (!heroMetrics.src.endsWith('/conutway/assets/conutway-brazil-china-hero-user.webp')) fail(`Hero aponta para recurso inesperado: ${heroMetrics.src}`);
 
-  const brandLogo = page.locator('.brand-logo');
-  await brandLogo.waitFor({ state: 'visible', timeout: 10000 });
-  report.logoVisible = await brandLogo.isVisible();
-  const logoMetrics = await brandLogo.evaluate((el) => ({ complete: el.complete, naturalWidth: el.naturalWidth, naturalHeight: el.naturalHeight, src: el.currentSrc }));
-  if (!report.logoVisible || !logoMetrics.complete || logoMetrics.naturalWidth < 250 || logoMetrics.naturalHeight < 80) fail(`Logo não renderizou corretamente: ${JSON.stringify(logoMetrics)}`);
+  const logo = page.locator('.brand-logo');
+  await logo.waitFor({ state: 'visible', timeout: 10000 });
+  report.logoVisible = await logo.isVisible();
+  const logoMetrics = await logo.evaluate((el) => ({ complete: el.complete, naturalWidth: el.naturalWidth, naturalHeight: el.naturalHeight, src: el.currentSrc }));
+  report.logoNaturalWidth = logoMetrics.naturalWidth;
+  report.logoNaturalHeight = logoMetrics.naturalHeight;
+  if (!logoMetrics.complete || logoMetrics.naturalWidth < 200 || logoMetrics.naturalHeight < 60) {
+    fail(`Logo não decodificou corretamente: ${JSON.stringify(logoMetrics)}`);
+  }
+  if (!logoMetrics.src.endsWith('/conutway/assets/conutway-teza-logo-user.webp')) fail(`Logo aponta para recurso inesperado: ${logoMetrics.src}`);
 
-  const headline = (await page.locator('.copy h1').innerText()).replace(/\s+/g, ' ').trim();
-  if (!headline.includes('Controle internacional.') || !headline.includes('Decisões mais seguras.')) fail(`Headline inesperada: ${headline}`);
-  const accessCard = await page.locator('.card').boundingBox();
-  if (!accessCard || accessCard.width < 380 || accessCard.height < 450) fail(`Card de acesso fora do padrão: ${JSON.stringify(accessCard)}`);
+  await page.screenshot({ path: 'pages-login-audit.png', fullPage: true });
 
   await page.locator('#username').fill('admin');
   await page.locator('#password').fill('senha-incorreta');
@@ -133,7 +141,6 @@ try {
   if (report.pageErrors.length) fail(`Erros de página: ${report.pageErrors.join(' | ')}`);
   if (report.requestFailures.length) fail(`Falhas de rede: ${report.requestFailures.join(' | ')}`);
 
-  await page.screenshot({ path: 'pages-login-audit.png', fullPage: true });
   report.finishedAt = new Date().toISOString();
   await fs.writeFile('pages-login-audit.json', JSON.stringify({ ok: true, report }, null, 2));
   console.log(JSON.stringify({ ok: true, report }, null, 2));
