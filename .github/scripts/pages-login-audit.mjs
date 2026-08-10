@@ -59,7 +59,7 @@ try {
   const heroBody = await heroResponse.body();
   report.heroBytes = heroBody.length;
   if (report.heroStatus !== 200) fail(`Hero respondeu HTTP ${report.heroStatus}`);
-  if (heroBody.length !== 105456) fail(`Hero com tamanho inesperado: ${heroBody.length} bytes`);
+  if (heroBody.length !== 73684) fail(`Hero com tamanho inesperado: ${heroBody.length} bytes`);
   if (heroBody.subarray(0, 4).toString('ascii') !== 'RIFF' || heroBody.subarray(8, 12).toString('ascii') !== 'WEBP') {
     fail('Hero publicado não é um WebP válido.');
   }
