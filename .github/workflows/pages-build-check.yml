@@ -1,0 +1,116 @@
+name: Validar build estático do CONUTWAY
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Reconstruir pacote original completo
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -t PARTES < <(find .bootstrap -maxdepth 1 -type f -name 'part-*' -print | sort -V)
+          if [ "${#PARTES[@]}" -lt 10 ]; then
+            echo "Quantidade inesperada de partes: ${#PARTES[@]}"
+            printf '%s\n' "${PARTES[@]}"
+            exit 1
+          fi
+
+          echo "Partes encontradas: ${#PARTES[@]}"
+          echo "Primeira: ${PARTES[0]}"
+          echo "Última: ${PARTES[-1]}"
+
+          cat "${PARTES[@]}" | tr -d '\r\n\t ' | base64 --decode > /tmp/conutway-package.xz
+          xz -t /tmp/conutway-package.xz
+          xz -dc /tmp/conutway-package.xz > /tmp/conutway-package.bin
+
+          rm -rf restaurado
+          mkdir -p restaurado
+          if tar -tf /tmp/conutway-package.bin >/dev/null 2>&1; then
+            tar -xf /tmp/conutway-package.bin -C restaurado
+          elif unzip -tq /tmp/conutway-package.bin >/dev/null 2>&1; then
+            unzip -q /tmp/conutway-package.bin -d restaurado
+          else
+            echo "Pacote reconstruído não é TAR nem ZIP."
+            file /tmp/conutway-package.bin || true
+            exit 1
+          fi
+
+          APP_INDEX="$(find restaurado -type f -path '*/app/index.html' | sort | head -n 1 || true)"
+          test -n "$APP_INDEX"
+          APP_DIR="$(dirname "$APP_INDEX")"
+          echo "Frontend: $APP_DIR"
+
+          rm -rf _site
+          mkdir -p _site
+          cp -a "$APP_DIR"/. _site/
+
+          rm -f \
+            _site/server.js \
+            _site/rfq-server-service.js \
+            _site/workspace-rfq-client.js \
+            _site/docker-compose.yml \
+            _site/start-conutway-br-erp.sh \
+            _site/README.md
+          rm -rf _site/tools
+          touch _site/.nojekyll
+
+      - name: Preparar modo GitHub Pages
+        run: python3 .github/scripts/prepare_pages.py _site
+
+      - name: Validar conteúdo final
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in \
+            _site/index.html \
+            _site/404.html \
+            _site/app.js \
+            _site/styles.css \
+            _site/storage.js \
+            _site/permissions.js \
+            _site/assets/ct-mark.png \
+            _site/assets/conutway-teza-logo-crop.png; do
+            test -s "$file" || { echo "Arquivo ausente: $file"; exit 1; }
+          done
+
+          test ! -e _site/server.js
+          test ! -e _site/rfq-server-service.js
+          test ! -e _site/workspace-rfq-client.js
+          grep -q '<base href="/conutway/">' _site/index.html
+          grep -q 'id="logoutBtn" hidden' _site/index.html
+          grep -q 'const serverStorageAllowed = () => false;' _site/app.js
+          grep -q 'activeUserSurface: "roster"' _site/app.js
+          grep -q 'const authVisible = isCurrentUserAdmin() && serverStorageAllowed();' _site/app.js
+          grep -q '\["documents", "internalRfqs"\].includes(moduleName)' _site/app.js
+
+          node --check _site/app.js
+          node --check _site/storage.js
+          node --check _site/permissions.js
+          node --check _site/contracts.js
+          node --check _site/pricing.js
+          node --check _site/project-accounts.js
+          node --check _site/rfq-ui.js
+          node --check _site/rfq-exchange.js
+          node --check _site/rfq-notifications.js
+          node --check _site/master-sync.js
+          node --check _site/nas-operations.js
+          node --check _site/nas-status-ui.js
+          node --check _site/operation-feedback.js
+          node --check _site/formatting.js
+
+          echo "Build estático validado: $(find _site -type f | wc -l) arquivos"
+          du -sh _site
