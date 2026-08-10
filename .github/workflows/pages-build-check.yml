@@ -14,70 +14,27 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Baixar histórico completo
+      - name: Baixar repositório
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Recuperar partes históricas do pacote
+      - name: Recuperar bundle estático preservado
         shell: bash
         run: |
           set -euo pipefail
-          COMMITS=(
-            2fd2a98a477c871c73b6c688e43fed3e542ec439
-            6c228e307779c9d6c8ae722377d7de369f9f2131
-            b0b074f5eca193bd49ffc8ead8ab75f10cc1e345
-            466c1f244f57d2c02b1f51715e8b8c08ccdd9eb2
-            c2c41af851dcb446a19af82d21a312e448656061
-            36d230a447d981b45f7a644cb42f55775db211e1
-            f1fa09d710ae6b1b8e76f55c8adcf5f8f34a7920
-            c3fc96fd4965d18e4b9a8af55df7b3758cdf028e
-            f0cc8a7317cd6075b348ca775d5192ebb1a7a938
-            a5307fc43f74750fc96b72258d3b84785b5b2e30
-            ef14e8fc0ff4aef4a630136e41259e573e98f2c6
-            27b363adc30221661bd3a4056d9075d0bb71c441
-            664c44a6f5ee1ab302b1be0fa89c3a43c3a64852
-            e6da8fc4d91dcb75bbb8f20be916829ee92dc0e3
-            68480bd9d4b0b5babcd1a0a0b6cb6ce90e802926
-            88e3eb8d597195defe2c4b2fad4f0f6011067fd2
-            15846ec7cfd5b92d2d2df9b9a2cf53e12bfb0c49
-            b8fc843661ff672b6247a6562fb6f735b58661a2
-            5d1d1c7035b793e0531208fa139b510748461a21
-            0ce80cf0cc0cf6aa0c52671f444f5090115637ca
-            42565f1e1dc9341929b279ab5fa7988837c50ee9
-          )
-          i=0
-          for sha in "${COMMITS[@]}"; do
-            git fetch --no-tags origin "$sha:refs/archive/package-$i"
-            i=$((i+1))
-          done
-          mapfile -t REFS < <(git for-each-ref --format='%(refname)' 'refs/archive/package-*' | sort -V)
-          test "${#REFS[@]}" -eq 21
-          mapfile -t PATHS < <(for ref in "${REFS[@]}"; do git ls-tree -r --name-only "$ref" .bootstrap; done | grep -E '^\.bootstrap/part-[0-9]+$' | sort -Vu)
-          echo "Partes históricas: ${#PATHS[@]}"
-          printf '%s\n' "${PATHS[@]}"
-          test "${#PATHS[@]}" -eq 21
-
+          REF='origin/fix/github-pages-static-bundle-v2'
+          mapfile -t PARTS < <(git ls-tree -r --name-only "$REF" .pages-bundle | grep -E '^\.pages-bundle/part-[0-9]+$' | sort -V)
+          echo "Partes do bundle: ${#PARTS[@]}"
+          printf '%s\n' "${PARTS[@]}"
+          test "${#PARTS[@]}" -ge 3
           : > /tmp/site.b64
-          VALIDAS=0
-          for path in "${PATHS[@]}"; do
-            conteudo=""
-            for ref in "${REFS[@]}"; do
-              if git cat-file -e "$ref:$path" 2>/dev/null; then
-                candidato="$(git show "$ref:$path" | tr -d '\r\n\t ')"
-                if [ -n "$candidato" ] && [ "$candidato" != "PLACEHOLDER" ] && printf '%s' "$candidato" | grep -Eq '^[A-Za-z0-9+/=]+$'; then
-                  conteudo="$candidato"
-                  break
-                fi
-              fi
-            done
-            test -n "$conteudo"
-            printf '%s' "$conteudo" >> /tmp/site.b64
-            VALIDAS=$((VALIDAS+1))
+          for part in "${PARTS[@]}"; do
+            git show "$REF:$part" | tr -d '\r\n\t ' >> /tmp/site.b64
           done
-          test "$VALIDAS" -eq 21
+          echo "Base64: $(wc -c < /tmp/site.b64) chars"
           base64 --decode /tmp/site.b64 > /tmp/site.xz
-          echo "XZ reconstruído: $(stat -c%s /tmp/site.xz) bytes"
+          echo "XZ: $(stat -c%s /tmp/site.xz) bytes"
           xz -t /tmp/site.xz
           xz -dc /tmp/site.xz > /tmp/site.bin
 
@@ -90,7 +47,6 @@ jobs:
             file /tmp/site.bin || true
             exit 1
           fi
-
           APP_INDEX="$(find restaurado -type f -path '*/app/index.html' | sort | head -n 1 || true)"
           if [ -z "$APP_INDEX" ]; then APP_INDEX="$(find restaurado -type f -name index.html | sort | head -n 1 || true)"; fi
           test -n "$APP_INDEX"
