@@ -10,6 +10,7 @@ on:
       - '.login-assets/target-v2/**'
       - '.github/scripts/recover_pages.py'
       - '.github/scripts/prepare_pages.py'
+      - '.github/scripts/apply_workspace_premium.py'
       - '.github/scripts/pages-login-audit.mjs'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
@@ -76,6 +77,9 @@ jobs:
           print('logo_ok chars=', len(logo))
           PY
 
+      - name: Aplicar interface interna premium
+        run: python3 .github/scripts/apply_workspace_premium.py _site
+
       - name: Validar site final
         shell: bash
         run: |
@@ -86,6 +90,10 @@ jobs:
           grep -q '<base href="/conutway/">' _site/index.html
           grep -q 'id="pagesAuthGuard"' _site/index.html
           grep -q 'id="pagesLogoutHandler"' _site/index.html
+          grep -q 'data-workspace-theme="premium-v1"' _site/index.html
+          grep -q 'CONUTWAY WORKSPACE PREMIUM V1' _site/styles.css
+          grep -q 'assets/conutway-teza-logo-v2.svg' _site/index.html
+          test "$(grep -o 'data-module-target=' _site/index.html | wc -l)" -eq 14
           grep -q 'id="loginForm"' _site/login.html
           grep -q 'target-v2-backup-hero' _site/login.html
           grep -q 'conutway-brazil-china-hero.webp' _site/login.html
@@ -155,5 +163,6 @@ jobs:
           path: |
             pages-login-audit.json
             pages-login-audit.png
+            pages-workspace-audit.png
           if-no-files-found: warn
           retention-days: 7
