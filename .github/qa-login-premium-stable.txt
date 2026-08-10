@@ -1,0 +1,3 @@
+QA do login premium sobre a última base estável do GitHub Pages.
+Base main: 35f50b9f35f72ba35eba30c51653cadf6304c07f
+Objetivo: executar o workflow de validação por pull request sem alterar o build.
