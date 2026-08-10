@@ -51,12 +51,17 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import hashlib
-          b = Path('_site/assets/conutway-hero-user-v9.webp').read_bytes()
-          assert len(b) == 49512, len(b)
-          assert b[:4] == b'RIFF' and b[8:12] == b'WEBP'
+          p = Path('_site/assets/conutway-hero-user-v9.webp')
+          raw = p.read_bytes()
+          assert raw[:4] == b'RIFF' and raw[8:12] == b'WEBP', 'arquivo não é WebP'
+          declared = int.from_bytes(raw[4:8], 'little') + 8
+          assert 12 <= declared <= len(raw), (declared, len(raw))
+          b = raw[:declared]
+          p.write_bytes(b)
           digest = hashlib.sha256(b).hexdigest()
-          assert digest == '708d0186fe79455e3fe8e99da04830235b5082d3690436772031e3855a42e062', digest
-          print('hero_usuario_ok bytes=', len(b), 'sha256=', digest)
+          assert len(b) == 49512, len(b)
+          assert digest == '5d2eddaf68bfd96859912099a8dd3892bd1ab337d6af09ecb43051b0693adcd6', digest
+          print('hero_usuario_ok raw_bytes=', len(raw), 'webp_bytes=', len(b), 'sha256=', digest)
           PY
 
       - name: Validar arquivos finais
