@@ -1,0 +1,84 @@
+name: Validar build e navegação do CONUTWAY
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Recuperar referências preservadas
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin refs/heads/fix/pages-bundle-integrity:refs/remotes/origin/fix/pages-bundle-integrity
+          git fetch --no-tags origin refs/heads/qa/live-pages-audit:refs/remotes/origin/qa/live-pages-audit
+
+      - name: Reconstruir frontend
+        run: python3 .github/scripts/recover_pages.py _site
+
+      - name: Preparar GitHub Pages
+        run: python3 .github/scripts/prepare_pages.py _site
+
+      - name: Validar arquivos finais
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in index.html 404.html app.js styles.css storage.js permissions.js; do test -s "_site/$f"; done
+          grep -q '<base href="/conutway/">' _site/index.html
+          grep -q 'const serverStorageAllowed = () => false;' _site/app.js
+          node --check _site/app.js
+          node --check _site/storage.js
+          node --check _site/permissions.js
+          echo "files=$(find _site -type f | wc -l)"
+          du -sh _site
+
+      - name: Preparar navegador de teste
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Auditar navegação no build local
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/conutway-www && mkdir -p /tmp/conutway-www/conutway
+          cp -a _site/. /tmp/conutway-www/conutway/
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory /tmp/conutway-www >/tmp/conutway-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+          READY=0
+          for n in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:4173/conutway/ >/dev/null; then READY=1; break; fi
+            sleep 0.25
+          done
+          test "$READY" -eq 1
+          git show origin/qa/live-pages-audit:.github/scripts/live-pages-audit.mjs > .github/scripts/local-pages-audit.mjs
+          sed -i 's#https://stepoil-debug.github.io/conutway/#http://127.0.0.1:4173/conutway/#g' .github/scripts/local-pages-audit.mjs
+          node .github/scripts/local-pages-audit.mjs
+
+      - name: Guardar evidências da auditoria
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conutway-pr-browser-audit
+          path: |
+            live-pages-audit.json
+            live-pages-audit.png
+          if-no-files-found: warn
+          retention-days: 7
