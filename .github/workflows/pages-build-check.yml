@@ -1,4 +1,4 @@
-name: Diagnosticar segmentos do bundle CONUTWAY
+name: Validar bundle de integridade do CONUTWAY
 
 on:
   pull_request:
@@ -15,34 +15,28 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Inspecionar segmentos
+      - name: Inspecionar e reconstruir bundle
         shell: bash
         run: |
           set -euo pipefail
-          MAIN_REF='origin/fix/github-pages-static-bundle-v2'
-          RECOVERY_REF='origin/fix/pages-bundle-integrity'
-          rm -rf /tmp/pages-parts && mkdir -p /tmp/pages-parts
-          for n in 000 001 002 003 005; do git show "$MAIN_REF:.pages-bundle/part-$n" > "/tmp/pages-parts/part-$n"; done
-          git show "$RECOVERY_REF:.pages-bundle/part-004" > /tmp/pages-parts/part-004
-          for f in /tmp/pages-parts/part-*; do
-            clean="/tmp/$(basename "$f").clean"
-            tr -d '\r\n\t ' < "$f" > "$clean"
-            echo "--- $(basename "$f") ---"
-            echo "bytes=$(wc -c < "$clean") equals=$(tr -cd '=' < "$clean" | wc -c)"
-            printf 'head='; head -c 24 "$clean"; echo
-            printf 'tail='; tail -c 24 "$clean"; echo
-            if LC_ALL=C grep -q '[^A-Za-z0-9+/=]' "$clean"; then
-              echo 'invalid_chars=yes'
-              LC_ALL=C grep -o '[^A-Za-z0-9+/=]' "$clean" | head -20 | od -An -t x1
-            else
-              echo 'invalid_chars=no'
+          REF='origin/fix/pages-bundle-integrity'
+          mapfile -t PARTS < <(git ls-tree -r --name-only "$REF" .pages-bundle | grep -E '^\.pages-bundle/part-[0-9]+$' | sort -V)
+          echo "Partes: ${#PARTS[@]}"
+          printf '%s\n' "${PARTS[@]}"
+          test "${#PARTS[@]}" -ge 2
+          : > /tmp/all.b64
+          for part in "${PARTS[@]}"; do
+            git show "$REF:$part" | tr -d '\r\n\t ' > /tmp/current
+            echo "--- $part --- bytes=$(wc -c < /tmp/current) equals=$(tr -cd '=' < /tmp/current | wc -c)"
+            printf 'head='; head -c 20 /tmp/current; echo
+            printf 'tail='; tail -c 20 /tmp/current; echo
+            if LC_ALL=C grep -q '[^A-Za-z0-9+/=]' /tmp/current; then
+              echo "INVALID $part"
+              exit 1
             fi
+            cat /tmp/current >> /tmp/all.b64
           done
-          cat /tmp/part-*.clean > /tmp/all.b64
           echo "total=$(wc -c < /tmp/all.b64) mod4=$(( $(wc -c < /tmp/all.b64) % 4 ))"
-          set +e
           base64 --decode /tmp/all.b64 > /tmp/site.xz
-          code=$?
-          set -e
-          echo "decode_exit=$code xz_bytes=$(wc -c < /tmp/site.xz)"
-          exit "$code"
+          echo "xz_bytes=$(wc -c < /tmp/site.xz)"
+          xz -t /tmp/site.xz
