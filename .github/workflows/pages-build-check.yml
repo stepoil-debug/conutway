@@ -24,7 +24,6 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags origin refs/heads/fix/pages-bundle-integrity:refs/remotes/origin/fix/pages-bundle-integrity
-          git fetch --no-tags origin refs/heads/qa/live-pages-audit:refs/remotes/origin/qa/live-pages-audit
 
       - name: Reconstruir frontend
         run: python3 .github/scripts/recover_pages.py _site
@@ -36,9 +35,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for f in index.html 404.html app.js styles.css storage.js permissions.js; do test -s "_site/$f"; done
+          for f in index.html login.html 404.html app.js styles.css storage.js permissions.js; do test -s "_site/$f"; done
           grep -q '<base href="/conutway/">' _site/index.html
+          grep -q 'id="pagesAuthGuard"' _site/index.html
+          grep -q 'id="pagesLogoutHandler"' _site/index.html
+          grep -q 'id="loginForm"' _site/login.html
+          grep -q "username !== 'admin' || password !== 'admin'" _site/login.html
           grep -q 'const serverStorageAllowed = () => false;' _site/app.js
+          grep -q 'username: "admin"' _site/app.js
           node --check _site/app.js
           node --check _site/storage.js
           node --check _site/permissions.js
@@ -53,7 +57,7 @@ jobs:
           npm install --no-save playwright
           npx playwright install --with-deps chromium
 
-      - name: Auditar navegação no build local
+      - name: Auditar login e navegação no build local
         shell: bash
         run: |
           set -euo pipefail
@@ -64,21 +68,21 @@ jobs:
           trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
           READY=0
           for n in $(seq 1 20); do
-            if curl -fsS http://127.0.0.1:4173/conutway/ >/dev/null; then READY=1; break; fi
+            if curl -fsS http://127.0.0.1:4173/conutway/login.html >/dev/null; then READY=1; break; fi
             sleep 0.25
           done
           test "$READY" -eq 1
-          git show origin/qa/live-pages-audit:.github/scripts/live-pages-audit.mjs > .github/scripts/local-pages-audit.mjs
-          sed -i 's#https://stepoil-debug.github.io/conutway/#http://127.0.0.1:4173/conutway/#g' .github/scripts/local-pages-audit.mjs
-          node .github/scripts/local-pages-audit.mjs
+          cp .github/scripts/pages-login-audit.mjs .github/scripts/local-pages-login-audit.mjs
+          sed -i 's#https://stepoil-debug.github.io/conutway/#http://127.0.0.1:4173/conutway/#g' .github/scripts/local-pages-login-audit.mjs
+          node .github/scripts/local-pages-login-audit.mjs
 
       - name: Guardar evidências da auditoria
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: conutway-pr-browser-audit
+          name: conutway-pr-login-audit
           path: |
-            live-pages-audit.json
-            live-pages-audit.png
+            pages-login-audit.json
+            pages-login-audit.png
           if-no-files-found: warn
           retention-days: 7
