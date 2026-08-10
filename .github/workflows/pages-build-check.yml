@@ -1,4 +1,4 @@
-name: Recuperar pacote original completo do CONUTWAY
+name: Validar recuperação do frontend CONUTWAY
 
 on:
   pull_request:
@@ -16,113 +16,66 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Inspecionar bootstrap preservado
+      - name: Recuperar TAR a partir do bootstrap preservado
         shell: bash
         run: |
           set -euo pipefail
           REF='origin/main'
           mapfile -t PARTS < <(git ls-tree -r --name-only "$REF" .bootstrap | grep -E '^\.bootstrap/part-[0-9]+$' | sort -V)
-          echo "PARTS=${#PARTS[@]}"
           : > /tmp/bootstrap.b64
           for part in "${PARTS[@]}"; do
-            git show "$REF:$part" | tr -d '\r\n\t ' > /tmp/current
-            echo "--- $part bytes=$(wc -c < /tmp/current) head=$(head -c 16 /tmp/current) tail=$(tail -c 32 /tmp/current)"
-            cat /tmp/current >> /tmp/bootstrap.b64
+            content="$(git show "$REF:$part" | tr -d '\r\n\t ')"
+            if [ "$content" = "PLACEHOLDER" ]; then
+              echo "Ignorando placeholder: $part"
+              continue
+            fi
+            printf '%s' "$content" >> /tmp/bootstrap.b64
           done
-          echo "TOTAL=$(wc -c < /tmp/bootstrap.b64) MOD4=$(( $(wc -c < /tmp/bootstrap.b64) % 4 ))"
-          echo "HEAD=$(head -c 64 /tmp/bootstrap.b64)"
-          echo "TAIL=$(tail -c 128 /tmp/bootstrap.b64)"
 
-      - name: Tentar decodificar e recuperar XZ
-        shell: bash
-        run: |
-          set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import base64, hashlib, lzma, re, tarfile, zipfile, io
-
+          import base64, lzma
           s = Path('/tmp/bootstrap.b64').read_text().strip()
-          print('original_len', len(s), 'mod4', len(s)%4, 'tail', s[-120:])
-
-          candidates = {}
-          candidates['original'] = s
-          for token in ['BPLACEHOLDER', 'PLACEHOLDER', 'PLACEHOLDERB', 'TOBEFILLED']:
-              if token in s:
-                  candidates[f'remove_{token}'] = s.replace(token, '')
-                  print('found token', token, 'count', s.count(token))
-
-          # Tenta cortes no fim, porque os placeholders antigos foram gravados no último segmento.
-          for trim in range(0, 80):
-              t = s[:-trim] if trim else s
-              t2 = re.sub(r'(?:B?PLACEHOLDER)+$', '', t)
-              for name, data in [(f'trim{trim}', t), (f'trim{trim}_stripph', t2)]:
-                  pad = '=' * ((-len(data)) % 4)
-                  candidates[name] = data + pad
-
-          seen=set()
-          best=[]
-          for name,data in candidates.items():
-              h=hashlib.sha256(data.encode()).hexdigest()
-              if h in seen: continue
-              seen.add(h)
-              try:
-                  raw=base64.b64decode(data, validate=True)
-              except Exception:
-                  continue
-              if not raw.startswith(b'\xfd7zXZ\x00'):
-                  continue
-              out=b''
-              eof=False
-              err=''
-              try:
-                  dec=lzma.LZMADecompressor(format=lzma.FORMAT_XZ)
-                  out=dec.decompress(raw)
-                  eof=dec.eof
-              except Exception as e:
-                  err=f'{type(e).__name__}: {e}'
-              print(name, 'raw',len(raw),'out',len(out),'eof',eof,'err',err,'out_head',out[:16])
-              if out:
-                  bio=io.BytesIO(out)
-                  iszip=zipfile.is_zipfile(bio)
-                  bio.seek(0)
-                  istar=False
-                  try:
-                      with tarfile.open(fileobj=bio, mode='r:*') as tf:
-                          istar=True
-                          names=tf.getnames()
-                  except Exception:
-                      names=[]
-                  print(name,'zip',iszip,'tar',istar,'names_first',names[:8] if names else [])
-                  best.append((len(out),name,out,eof,iszip,istar))
-
-          if not best:
-              raise SystemExit('Nenhuma variante do bootstrap produziu dados XZ recuperáveis.')
-          best.sort(reverse=True,key=lambda x:x[0])
-          print('BEST',[(x[0],x[1],x[3],x[4],x[5]) for x in best[:10]])
-          out=best[0][2]
-          Path('/tmp/recovered.bin').write_bytes(out)
+          s += '=' * ((-len(s)) % 4)
+          raw = base64.b64decode(s, validate=True)
+          if not raw.startswith(b'\xfd7zXZ\x00'):
+              raise SystemExit('Bootstrap não inicia com cabeçalho XZ.')
+          dec = lzma.LZMADecompressor(format=lzma.FORMAT_XZ)
+          out = dec.decompress(raw)
+          print('base64_chars=', len(s), 'xz_bytes=', len(raw), 'tar_bytes_recuperados=', len(out), 'xz_eof=', dec.eof)
+          if len(out) < 100000:
+              raise SystemExit('Conteúdo recuperado é pequeno demais.')
+          Path('/tmp/recovered.tar').write_bytes(out)
           PY
+          file /tmp/recovered.tar
 
-          file /tmp/recovered.bin || true
-          ls -lh /tmp/recovered.bin
-
-      - name: Examinar conteúdo recuperado
+      - name: Extrair membros completos do TAR truncado
         shell: bash
         run: |
           set -euo pipefail
           rm -rf /tmp/recovered && mkdir -p /tmp/recovered
-          if unzip -tq /tmp/recovered.bin >/dev/null 2>&1; then
-            echo TYPE=ZIP
-            unzip -q /tmp/recovered.bin -d /tmp/recovered
-          elif tar -tf /tmp/recovered.bin >/dev/null 2>&1; then
-            echo TYPE=TAR
-            tar -xf /tmp/recovered.bin -C /tmp/recovered
-          else
-            echo TYPE=UNKNOWN
-            file /tmp/recovered.bin
-            strings /tmp/recovered.bin | head -100 || true
-            exit 1
-          fi
-          find /tmp/recovered -maxdepth 4 -type f | sort | head -200
-          echo COUNT=$(find /tmp/recovered -type f | wc -l)
-          find /tmp/recovered -type f -name index.html -print
+          set +e
+          tar -xvf /tmp/recovered.tar -C /tmp/recovered --ignore-zeros --warning=no-unknown-keyword >/tmp/tar-extract.log 2>&1
+          TAR_CODE=$?
+          set -e
+          echo "tar_exit=$TAR_CODE"
+          tail -40 /tmp/tar-extract.log || true
+          echo "Arquivos extraídos: $(find /tmp/recovered -type f | wc -l)"
+          find /tmp/recovered -maxdepth 3 -type f | sort | head -150
+
+      - name: Validar frontend recuperado
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_DIR=/tmp/recovered/app
+          test -d "$APP_DIR"
+          for f in index.html app.js styles.css storage.js permissions.js; do
+            echo "$f bytes=$(stat -c%s "$APP_DIR/$f" 2>/dev/null || echo 0)"
+            test -s "$APP_DIR/$f"
+          done
+          node --check "$APP_DIR/app.js"
+          node --check "$APP_DIR/storage.js"
+          node --check "$APP_DIR/permissions.js"
+          echo "index_head:"
+          head -20 "$APP_DIR/index.html"
+          echo "FRONTEND_RECUPERADO_OK"
