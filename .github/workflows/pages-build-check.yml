@@ -19,19 +19,25 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Recuperar bundle estático preservado
+      - name: Reconstruir bundle estático completo
         shell: bash
         run: |
           set -euo pipefail
-          REF='origin/fix/github-pages-static-bundle-v2'
-          mapfile -t PARTS < <(git ls-tree -r --name-only "$REF" .pages-bundle | grep -E '^\.pages-bundle/part-[0-9]+$' | sort -V)
-          echo "Partes do bundle: ${#PARTS[@]}"
-          printf '%s\n' "${PARTS[@]}"
-          test "${#PARTS[@]}" -ge 3
-          : > /tmp/site.b64
-          for part in "${PARTS[@]}"; do
-            git show "$REF:$part" | tr -d '\r\n\t ' >> /tmp/site.b64
+          MAIN_REF='origin/fix/github-pages-static-bundle-v2'
+          RECOVERY_REF='origin/fix/pages-bundle-integrity'
+          rm -rf /tmp/pages-parts && mkdir -p /tmp/pages-parts
+
+          for n in 000 001 002 003 005; do
+            git show "$MAIN_REF:.pages-bundle/part-$n" > "/tmp/pages-parts/part-$n"
           done
+          git show "$RECOVERY_REF:.pages-bundle/part-004" > /tmp/pages-parts/part-004
+
+          mapfile -t PARTS < <(find /tmp/pages-parts -type f -name 'part-*' | sort -V)
+          echo "Partes recuperadas: ${#PARTS[@]}"
+          printf '%s\n' "${PARTS[@]}"
+          test "${#PARTS[@]}" -eq 6
+
+          cat "${PARTS[@]}" | tr -d '\r\n\t ' > /tmp/site.b64
           echo "Base64: $(wc -c < /tmp/site.b64) chars"
           base64 --decode /tmp/site.b64 > /tmp/site.xz
           echo "XZ: $(stat -c%s /tmp/site.xz) bytes"
@@ -47,6 +53,7 @@ jobs:
             file /tmp/site.bin || true
             exit 1
           fi
+
           APP_INDEX="$(find restaurado -type f -path '*/app/index.html' | sort | head -n 1 || true)"
           if [ -z "$APP_INDEX" ]; then APP_INDEX="$(find restaurado -type f -name index.html | sort | head -n 1 || true)"; fi
           test -n "$APP_INDEX"
