@@ -1,0 +1,1 @@
+QA v7: hero e logo WebP são blobs binários reais versionados no main; validar build, login, workspace e logout sem conversão de assets.
