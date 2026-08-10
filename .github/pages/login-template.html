@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#061423" />
+  <meta name="conutway-build" content="premium-assets-v5" />
+  <link rel="icon" href="data:,">
   <base href="/conutway/">
   <title>CONUTWAY TEZA | Acesso</title>
   <style>
@@ -28,17 +30,22 @@
     html,body{margin:0;min-height:100%;background:var(--navy-950);color:var(--text)}
     body{min-height:100vh;overflow-x:hidden}
     button,input{font:inherit}
+
     .login-shell{min-height:100vh;display:grid;grid-template-columns:minmax(0,1.58fr) minmax(430px,.96fr);background:#061423}
     .hero-panel{position:relative;min-height:100vh;overflow:hidden;border-right:1px solid rgba(119,174,221,.17);isolation:isolate}
-    .hero-photo{position:absolute;inset:0;background-image:none;background-color:#071521;background-size:cover;background-position:center 42%;transform:scale(1.012);filter:saturate(1.04) contrast(1.04) brightness(.84);z-index:-4}
-    .hero-panel::before{content:"";position:absolute;inset:0;z-index:-3;background:linear-gradient(90deg,rgba(2,10,18,.83) 0%,rgba(2,10,18,.57) 29%,rgba(2,10,18,.15) 61%,rgba(2,10,18,.30) 100%),linear-gradient(180deg,rgba(2,9,16,.11) 0%,rgba(2,9,16,.04) 46%,rgba(2,10,18,.80) 100%)}
+    .hero-photo{position:absolute;inset:0;background-image:url("assets/conutway-brazil-china-hero.webp");background-color:#071521;background-size:cover;background-position:center 42%;transform:scale(1.012);filter:saturate(1.07) contrast(1.05) brightness(.86);z-index:-4}
+    .hero-panel::before{content:"";position:absolute;inset:0;z-index:-3;background:
+      linear-gradient(90deg,rgba(2,10,18,.83) 0%,rgba(2,10,18,.57) 29%,rgba(2,10,18,.15) 61%,rgba(2,10,18,.30) 100%),
+      linear-gradient(180deg,rgba(2,9,16,.11) 0%,rgba(2,9,16,.04) 46%,rgba(2,10,18,.80) 100%)}
     .hero-panel::after{content:"";position:absolute;inset:0;z-index:-2;opacity:.19;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:54px 54px;mask-image:linear-gradient(90deg,#000,rgba(0,0,0,.6),transparent 94%)}
+
     .hero-inner{min-height:100vh;padding:58px clamp(42px,4.1vw,72px) 46px;display:flex;flex-direction:column}
     .brand-stack{display:flex;flex-direction:column;align-items:flex-start;gap:16px}
     .logo-card{width:308px;max-width:62vw;padding:0;border:1px solid rgba(255,255,255,.20);border-radius:18px;overflow:hidden;background:#ebe9df;box-shadow:0 18px 48px rgba(0,0,0,.30),0 0 0 1px rgba(255,255,255,.03)}
     .logo-card img{display:block;width:100%;height:auto}
     .workspace-pill{display:inline-flex;align-items:center;gap:10px;padding:8px 14px;border:1px solid rgba(87,183,255,.30);border-radius:999px;background:rgba(5,20,34,.65);backdrop-filter:blur(12px);box-shadow:0 9px 24px rgba(0,0,0,.16);color:#dff2ff;font-size:11px;font-weight:850;letter-spacing:.10em;text-transform:uppercase}
     .workspace-pill::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--success);box-shadow:0 0 14px rgba(103,226,176,.8)}
+
     .hero-copy{margin-top:auto;max-width:880px;padding-top:84px}
     .hero-copy h1{margin:0;max-width:790px;font-size:clamp(48px,4.75vw,76px);line-height:.98;letter-spacing:-.055em;font-weight:850;text-shadow:0 11px 35px rgba(0,0,0,.42)}
     .hero-copy h1 span{display:block;color:var(--blue-light);margin-top:9px}
@@ -52,56 +59,138 @@
     .statement span{display:block;margin-top:7px;color:#aec4d6;font-size:12px;letter-spacing:.05em;text-transform:uppercase}
     .hero-footer{display:flex;justify-content:space-between;gap:20px;margin-top:27px;color:#b7c8d6;font-size:12px;letter-spacing:.04em;text-shadow:0 5px 16px rgba(0,0,0,.55)}
     .hero-footer strong{color:#fff;font-weight:800}
-    .access-panel{position:relative;min-height:100vh;display:grid;place-items:center;padding:44px clamp(34px,4vw,76px);background:radial-gradient(circle at 50% 46%,rgba(22,91,145,.16),transparent 25rem),linear-gradient(180deg,#061626 0%,#04111e 100%);overflow:hidden}
+
+    .access-panel{position:relative;min-height:100vh;display:grid;place-items:center;padding:44px clamp(34px,4vw,76px);background:
+      radial-gradient(circle at 50% 46%,rgba(22,91,145,.16),transparent 25rem),
+      linear-gradient(180deg,#061626 0%,#04111e 100%);overflow:hidden}
     .access-panel::before{content:"";position:absolute;inset:0;opacity:.12;background-image:linear-gradient(rgba(255,255,255,.024) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.024) 1px,transparent 1px);background-size:58px 58px;pointer-events:none}
     .login-card{position:relative;z-index:1;width:min(100%,485px);padding:40px 42px 36px;border:1px solid rgba(129,187,233,.30);border-radius:28px;background:linear-gradient(180deg,rgba(16,39,63,.93) 0%,rgba(7,22,38,.97) 100%);box-shadow:0 30px 80px rgba(0,0,0,.36),0 0 48px rgba(33,126,201,.07),inset 0 1px 0 rgba(255,255,255,.045);backdrop-filter:blur(22px)}
     .security{display:inline-flex;align-items:center;gap:9px;color:#9dd6ff;font-size:11px;font-weight:850;letter-spacing:.14em;text-transform:uppercase}
     .security svg{width:16px;height:16px}
     .login-card h2{margin:20px 0 8px;font-size:clamp(35px,3vw,44px);line-height:1.02;letter-spacing:-.048em}
     .login-card>p{margin:0 0 29px;color:#a8bacb;font-size:14px;line-height:1.55}
-    .field{display:grid;gap:9px;margin-top:17px}.field label{color:#eff6fc;font-size:12px;font-weight:760}
-    .input-wrap{position:relative;display:flex;align-items:center}.input-wrap>svg{position:absolute;left:16px;width:18px;height:18px;color:#7898b3;pointer-events:none}
+    .field{display:grid;gap:9px;margin-top:17px}
+    .field label{color:#eff6fc;font-size:12px;font-weight:760}
+    .input-wrap{position:relative;display:flex;align-items:center}
+    .input-wrap>svg{position:absolute;left:16px;width:18px;height:18px;color:#7898b3;pointer-events:none}
     .input-wrap input{width:100%;height:57px;padding:0 50px 0 47px;border:1px solid rgba(128,173,211,.20);border-radius:13px;outline:none;background:rgba(2,13,23,.59);color:#f4f9fd;transition:.18s ease}
-    .input-wrap input::placeholder{color:#607a92}.input-wrap input:focus{border-color:rgba(72,176,255,.75);background:rgba(3,15,27,.80);box-shadow:0 0 0 4px rgba(32,148,231,.13),0 0 24px rgba(43,151,233,.10)}
-    .password-toggle{position:absolute;right:8px;width:40px;height:40px;display:grid;place-items:center;border:0;border-radius:10px;background:transparent;color:#7e9ab3;cursor:pointer}.password-toggle:hover{color:#d8efff;background:rgba(83,181,255,.08)}.password-toggle svg{width:18px;height:18px}
-    .meta{display:flex;justify-content:space-between;gap:13px;margin-top:14px;color:#7e94a8;font-size:10.5px}.meta span:last-child{color:#9dbbd2}
-    .error{min-height:19px;margin-top:12px;color:var(--danger);font-size:12px;font-weight:750;opacity:0;transform:translateY(-3px);transition:.18s ease}.error.visible{opacity:1;transform:translateY(0)}
-    .submit{width:100%;height:56px;margin-top:5px;border:0;border-radius:13px;color:#fff;background:linear-gradient(110deg,#1386df 0%,#249af0 55%,#55baff 100%);box-shadow:0 15px 32px rgba(20,133,215,.28),inset 0 1px 0 rgba(255,255,255,.20);font-weight:850;cursor:pointer;transition:transform .18s ease,filter .18s ease,box-shadow .18s ease}.submit:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 18px 36px rgba(20,133,215,.34),inset 0 1px 0 rgba(255,255,255,.22)}.submit:disabled{opacity:.72;cursor:wait;transform:none}
-    .card-footer{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:23px;padding-top:21px;border-top:1px solid rgba(132,186,231,.10);color:#71889d;font-size:11px}.card-footer i{width:6px;height:6px;border-radius:50%;background:var(--success);box-shadow:0 0 13px rgba(103,226,176,.80)}
-    .shake{animation:shake .32s ease}@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
-    @media (max-width:1120px){.login-shell{grid-template-columns:1.35fr minmax(390px,.9fr)}.hero-inner{padding-left:42px;padding-right:42px}.hero-copy h1{font-size:clamp(44px,5vw,65px)}.login-card{padding:36px 32px}}
-    @media (max-width:920px){body{overflow:auto}.login-shell{grid-template-columns:1fr}.hero-panel{min-height:650px;border-right:0;border-bottom:1px solid rgba(119,174,221,.17)}.hero-inner{min-height:650px;padding:34px 28px 30px}.logo-card{width:260px}.hero-copy{padding-top:76px}.hero-footer{display:none}.access-panel{min-height:580px;padding:44px 20px}}
-    @media (max-width:560px){.hero-panel{min-height:610px}.hero-inner{min-height:610px;padding:24px 19px 26px}.hero-photo{background-position:54% 44%}.logo-card{width:230px}.workspace-pill{font-size:9px;padding:7px 11px}.hero-copy{padding-top:52px}.hero-copy h1{font-size:42px}.hero-copy p{font-size:14px}.statement{padding:15px 16px;gap:13px}.globe{width:34px;height:34px;flex-basis:34px}.statement strong{font-size:11px;line-height:1.35}.statement span{font-size:9px;line-height:1.4}.access-panel{min-height:540px;padding:28px 14px 36px}.login-card{padding:29px 22px;border-radius:23px}.meta{flex-direction:column;gap:5px}}
+    .input-wrap input::placeholder{color:#607a92}
+    .input-wrap input:focus{border-color:rgba(72,176,255,.75);background:rgba(3,15,27,.80);box-shadow:0 0 0 4px rgba(32,148,231,.13),0 0 24px rgba(43,151,233,.10)}
+    .password-toggle{position:absolute;right:8px;width:40px;height:40px;display:grid;place-items:center;border:0;border-radius:10px;background:transparent;color:#7e9ab3;cursor:pointer}
+    .password-toggle:hover{color:#d8efff;background:rgba(83,181,255,.08)}
+    .password-toggle svg{width:18px;height:18px}
+    .meta{display:flex;justify-content:space-between;gap:13px;margin-top:14px;color:#7e94a8;font-size:10.5px}
+    .meta span:last-child{color:#9dbbd2}
+    .error{min-height:19px;margin-top:12px;color:var(--danger);font-size:12px;font-weight:750;opacity:0;transform:translateY(-3px);transition:.18s ease}
+    .error.visible{opacity:1;transform:translateY(0)}
+    .submit{width:100%;height:56px;margin-top:5px;border:0;border-radius:13px;color:#fff;background:linear-gradient(110deg,#1386df 0%,#249af0 55%,#55baff 100%);box-shadow:0 15px 32px rgba(20,133,215,.28),inset 0 1px 0 rgba(255,255,255,.20);font-weight:850;cursor:pointer;transition:transform .18s ease,filter .18s ease,box-shadow .18s ease}
+    .submit:hover{transform:translateY(-1px);filter:brightness(1.06);box-shadow:0 18px 36px rgba(20,133,215,.34),inset 0 1px 0 rgba(255,255,255,.22)}
+    .submit:disabled{opacity:.72;cursor:wait;transform:none}
+    .card-footer{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:23px;padding-top:21px;border-top:1px solid rgba(132,186,231,.10);color:#71889d;font-size:11px}
+    .card-footer i{width:6px;height:6px;border-radius:50%;background:var(--success);box-shadow:0 0 13px rgba(103,226,176,.80)}
+    .shake{animation:shake .32s ease}
+    @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+
+    @media (max-width:1120px){
+      .login-shell{grid-template-columns:1.35fr minmax(390px,.9fr)}
+      .hero-inner{padding-left:42px;padding-right:42px}
+      .hero-copy h1{font-size:clamp(44px,5vw,65px)}
+      .login-card{padding:36px 32px}
+    }
+    @media (max-width:920px){
+      body{overflow:auto}
+      .login-shell{grid-template-columns:1fr}
+      .hero-panel{min-height:650px;border-right:0;border-bottom:1px solid rgba(119,174,221,.17)}
+      .hero-inner{min-height:650px;padding:34px 28px 30px}
+      .logo-card{width:260px}
+      .hero-copy{padding-top:76px}
+      .hero-footer{display:none}
+      .access-panel{min-height:580px;padding:44px 20px}
+    }
+    @media (max-width:560px){
+      .hero-panel{min-height:610px}
+      .hero-inner{min-height:610px;padding:24px 19px 26px}
+      .hero-photo{background-position:54% 44%}
+      .logo-card{width:230px}
+      .workspace-pill{font-size:9px;padding:7px 11px}
+      .hero-copy{padding-top:52px}
+      .hero-copy h1{font-size:42px}
+      .hero-copy p{font-size:14px}
+      .statement{padding:15px 16px;gap:13px}
+      .globe{width:34px;height:34px;flex-basis:34px}
+      .statement strong{font-size:11px;line-height:1.35}
+      .statement span{font-size:9px;line-height:1.4}
+      .access-panel{min-height:540px;padding:28px 14px 36px}
+      .login-card{padding:29px 22px;border-radius:23px}
+      .meta{flex-direction:column;gap:5px}
+    }
   </style>
 </head>
-<body>
+<body data-build="premium-assets-v5">
+  
   <main class="login-shell">
     <section class="hero-panel" aria-label="CONUTWAY TEZA - Operações Brasil e China">
       <div class="hero-photo" aria-hidden="true"></div>
       <div class="hero-inner">
         <div class="brand-stack">
-          <div class="logo-card"><img src="https://raw.githubusercontent.com/stepoil-debug/conutway/aa5fef21b38faa86b66ae157a1f57c34220be710/.github/pages/conutway-teza-logo-v2.svg" alt="CONUTWAY TEZA"></div>
+          <div class="logo-card"><img src="assets/conutway-teza-logo-v2.svg" alt="CONUTWAY TEZA"></div>
           <div class="workspace-pill">International Operations Workspace</div>
         </div>
+
         <div class="hero-copy">
           <h1>Controle internacional.<span>Decisões mais seguras.</span></h1>
           <p>Um ambiente único para organizar cotações, custos, importação, fornecedores, contratos e execução com visão clara do resultado de cada operação.</p>
-          <div class="capabilities" aria-label="Recursos principais"><span class="capability"><i></i>COMEX</span><span class="capability"><i></i>CUSTOS</span><span class="capability"><i></i>COTAÇÕES</span><span class="capability"><i></i>CONTROLE</span></div>
-          <div class="statement"><svg class="globe" viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="19" stroke="currentColor" stroke-width="2"/><path d="M5 24h38M24 5c6 5.2 9 11.6 9 19s-3 13.8-9 19c-6-5.2-9-11.6-9-19S18 10.2 24 5zM9.5 14.5h29M9.5 33.5h29" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><div><strong>Conectamos o melhor de dois mundos</strong><span>Importação inteligente · Negócios sem fronteiras</span></div></div>
+          <div class="capabilities" aria-label="Recursos principais">
+            <span class="capability"><i></i>COMEX</span>
+            <span class="capability"><i></i>CUSTOS</span>
+            <span class="capability"><i></i>COTAÇÕES</span>
+            <span class="capability"><i></i>CONTROLE</span>
+          </div>
+          <div class="statement">
+            <svg class="globe" viewBox="0 0 48 48" fill="none" aria-hidden="true"><circle cx="24" cy="24" r="19" stroke="currentColor" stroke-width="2"/><path d="M5 24h38M24 5c6 5.2 9 11.6 9 19s-3 13.8-9 19c-6-5.2-9-11.6-9-19S18 10.2 24 5zM9.5 14.5h29M9.5 33.5h29" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            <div><strong>Conectamos o melhor de dois mundos</strong><span>Importação inteligente · Negócios sem fronteiras</span></div>
+          </div>
           <div class="hero-footer"><span><strong>CONUTWAY TEZA</strong> · BR Workspace</span><span>China ↔ Brasil</span></div>
         </div>
       </div>
     </section>
+
     <section class="access-panel" aria-label="Área de acesso">
       <form id="loginForm" class="login-card" autocomplete="on" novalidate>
-        <div class="security"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l7 3v5c0 4.8-2.9 8-7 10-4.1-2-7-5.2-7-10V6l7-3z" stroke="currentColor" stroke-width="1.7"/><path d="M9.2 12.1l1.8 1.8 3.9-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>Área de acesso</div>
-        <h2>Bem-vindo.</h2><p>Entre com suas credenciais para acessar o workspace operacional.</p>
-        <div class="field"><label for="username">Usuário</label><div class="input-wrap"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.7"/><path d="M4.5 20c.8-4.1 3.3-6.2 7.5-6.2s6.7 2.1 7.5 6.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><input id="username" name="username" type="text" autocomplete="username" placeholder="Digite seu usuário" required autofocus></div></div>
-        <div class="field"><label for="password">Senha</label><div class="input-wrap"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8 10V7.5a4 4 0 018 0V10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><input id="password" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" required><button id="passwordToggle" class="password-toggle" type="button" aria-label="Mostrar senha" title="Mostrar senha"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2.5 12s3.2-5 9.5-5 9.5 5 9.5 5-3.2 5-9.5 5-9.5-5-9.5-5z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="1.6"/></svg></button></div></div>
-        <div class="meta"><span>Acesso restrito à equipe autorizada.</span><span>Sessão protegida no navegador</span></div><div id="loginError" class="error" role="alert" aria-live="polite">Usuário ou senha inválidos.</div><button id="submitBtn" class="submit" type="submit">Entrar no workspace</button><div class="card-footer"><i></i>CONUTWAY TEZA · Ambiente operacional</div>
+        <div class="security">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l7 3v5c0 4.8-2.9 8-7 10-4.1-2-7-5.2-7-10V6l7-3z" stroke="currentColor" stroke-width="1.7"/><path d="M9.2 12.1l1.8 1.8 3.9-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Área de acesso
+        </div>
+        <h2>Bem-vindo.</h2>
+        <p>Entre com suas credenciais para acessar o workspace operacional.</p>
+
+        <div class="field">
+          <label for="username">Usuário</label>
+          <div class="input-wrap">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.7"/><path d="M4.5 20c.8-4.1 3.3-6.2 7.5-6.2s6.7 2.1 7.5 6.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            <input id="username" name="username" type="text" autocomplete="username" placeholder="Digite seu usuário" required autofocus>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="password">Senha</label>
+          <div class="input-wrap">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8 10V7.5a4 4 0 018 0V10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" required>
+            <button id="passwordToggle" class="password-toggle" type="button" aria-label="Mostrar senha" title="Mostrar senha">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2.5 12s3.2-5 9.5-5 9.5 5 9.5 5-3.2 5-9.5 5-9.5-5-9.5-5z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="1.6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="meta"><span>Acesso restrito à equipe autorizada.</span><span>Sessão protegida no navegador</span></div>
+        <div id="loginError" class="error" role="alert" aria-live="polite">Usuário ou senha inválidos.</div>
+        <button id="submitBtn" class="submit" type="submit">Entrar no workspace</button>
+        <div class="card-footer"><i></i>CONUTWAY TEZA · Ambiente operacional</div>
       </form>
     </section>
   </main>
+
   <script>
     (() => {
       const AUTH_KEY = 'conutway.auth.v1';
@@ -112,26 +201,49 @@
       const errorBox = document.getElementById('loginError');
       const submitBtn = document.getElementById('submitBtn');
       const toggle = document.getElementById('passwordToggle');
-      const heroPhoto = document.querySelector('.hero-photo');
-      if (heroPhoto) {
-        fetch('https://raw.githubusercontent.com/stepoil-debug/conutway/aa5fef21b38faa86b66ae157a1f57c34220be710/.github/pages/conutway-brazil-china-hero-v2.webp.b64', { cache: 'force-cache' })
-          .then((response) => { if (!response.ok) throw new Error(`Hero HTTP ${response.status}`); return response.text(); })
-          .then((encoded) => {
-            const payload = encoded.replace(/\s+/g, '');
-            if (payload.length < 20000 || !payload.startsWith('UklGR')) throw new Error('Hero Base64 inválido');
-            heroPhoto.style.backgroundImage = `url("data:image/webp;base64,${payload}")`;
-            heroPhoto.dataset.loaded = 'true';
-          })
-          .catch((error) => { heroPhoto.dataset.loaded = 'error'; console.error('[CONUTWAY] Falha ao carregar hero Brasil-China:', error); });
+
+      const hasValidSession = () => {
+        try {
+          const raw = sessionStorage.getItem(AUTH_KEY);
+          if (!raw) return false;
+          const auth = JSON.parse(raw);
+          return auth?.user === 'admin' && Number.isFinite(auth?.issuedAt) && (Date.now() - auth.issuedAt) < MAX_AGE;
+        } catch (_) { return false; }
+      };
+
+      if (hasValidSession()) {
+        window.location.replace('./');
+        return;
       }
-      const hasValidSession = () => { try { const raw = sessionStorage.getItem(AUTH_KEY); if (!raw) return false; const auth = JSON.parse(raw); return auth?.user === 'admin' && Number.isFinite(auth?.issuedAt) && (Date.now() - auth.issuedAt) < MAX_AGE; } catch (_) { return false; } };
-      if (hasValidSession()) { window.location.replace('./'); return; }
       sessionStorage.removeItem(AUTH_KEY);
-      toggle.addEventListener('click', () => { const visible = passwordInput.type === 'text'; passwordInput.type = visible ? 'password' : 'text'; toggle.setAttribute('aria-label', visible ? 'Mostrar senha' : 'Ocultar senha'); toggle.setAttribute('title', visible ? 'Mostrar senha' : 'Ocultar senha'); passwordInput.focus(); });
+
+      toggle.addEventListener('click', () => {
+        const visible = passwordInput.type === 'text';
+        passwordInput.type = visible ? 'password' : 'text';
+        toggle.setAttribute('aria-label', visible ? 'Mostrar senha' : 'Ocultar senha');
+        toggle.setAttribute('title', visible ? 'Mostrar senha' : 'Ocultar senha');
+        passwordInput.focus();
+      });
+
       form.addEventListener('submit', (event) => {
-        event.preventDefault(); errorBox.classList.remove('visible'); form.classList.remove('shake'); const username = userInput.value.trim(); const password = passwordInput.value;
-        if (username !== 'admin' || password !== 'admin') { void form.offsetWidth; form.classList.add('shake'); errorBox.classList.add('visible'); passwordInput.select(); return; }
-        submitBtn.disabled = true; submitBtn.textContent = 'Acessando...'; sessionStorage.setItem(AUTH_KEY, JSON.stringify({ user: 'admin', name: 'Administrador', role: 'admin', issuedAt: Date.now() })); window.setTimeout(() => window.location.replace('./'), 180);
+        event.preventDefault();
+        errorBox.classList.remove('visible');
+        form.classList.remove('shake');
+        const username = userInput.value.trim();
+        const password = passwordInput.value;
+
+        if (username !== 'admin' || password !== 'admin') {
+          void form.offsetWidth;
+          form.classList.add('shake');
+          errorBox.classList.add('visible');
+          passwordInput.select();
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Acessando...';
+        sessionStorage.setItem(AUTH_KEY, JSON.stringify({ user: 'admin', name: 'Administrador', role: 'admin', issuedAt: Date.now() }));
+        window.setTimeout(() => window.location.replace('./'), 180);
       });
     })();
   </script>
