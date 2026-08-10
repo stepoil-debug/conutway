@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#08111d" />
+  <base href="/conutway/" />
+  <title>CONUTWAY TEZA | Acesso</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #07101b;
+      --bg-2: #0a1727;
+      --panel: rgba(12, 25, 41, .82);
+      --panel-strong: rgba(8, 18, 31, .94);
+      --line: rgba(148, 184, 215, .16);
+      --line-strong: rgba(124, 194, 255, .28);
+      --text: #f6f9fc;
+      --muted: #9fb1c5;
+      --blue: #2d8fe8;
+      --blue-2: #64b9ff;
+      --blue-3: #0f4c81;
+      --danger: #ff7b88;
+      --success: #6ce0b5;
+      --shadow: 0 28px 80px rgba(0, 0, 0, .36);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 18% 18%, rgba(45, 143, 232, .18), transparent 28rem),
+        radial-gradient(circle at 86% 78%, rgba(15, 76, 129, .24), transparent 32rem),
+        linear-gradient(135deg, #050b13 0%, #08111d 42%, #0a1727 100%);
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .34;
+      background-image:
+        linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+      background-size: 56px 56px;
+      mask-image: linear-gradient(90deg, #000 0%, rgba(0,0,0,.92) 58%, transparent 100%);
+    }
+
+    .login-shell {
+      position: relative;
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(0, 1.14fr) minmax(430px, .86fr);
+      isolation: isolate;
+    }
+
+    .brand-side {
+      position: relative;
+      min-height: 100vh;
+      padding: clamp(36px, 5vw, 78px);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      border-right: 1px solid var(--line);
+    }
+
+    .brand-side::before,
+    .brand-side::after {
+      content: "";
+      position: absolute;
+      border: 1px solid rgba(100, 185, 255, .14);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .brand-side::before {
+      width: 720px;
+      height: 720px;
+      right: -330px;
+      top: 50%;
+      transform: translateY(-50%);
+      box-shadow:
+        0 0 0 72px rgba(100,185,255,.025),
+        0 0 0 144px rgba(100,185,255,.018),
+        0 0 0 216px rgba(100,185,255,.012);
+    }
+    .brand-side::after {
+      width: 18px;
+      height: 18px;
+      right: 112px;
+      top: 31%;
+      background: var(--blue-2);
+      border: 6px solid rgba(100,185,255,.14);
+      box-shadow: 0 0 36px rgba(100,185,255,.58);
+    }
+
+    .brand-top,
+    .brand-content,
+    .brand-footer { position: relative; z-index: 2; }
+
+    .brand-logo {
+      display: inline-flex;
+      width: min(365px, 68vw);
+      filter: drop-shadow(0 14px 34px rgba(0,0,0,.26));
+    }
+    .brand-logo img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .brand-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      margin-top: 20px;
+      padding: 8px 12px;
+      border: 1px solid var(--line-strong);
+      border-radius: 999px;
+      color: #b9dcfb;
+      background: rgba(19, 61, 96, .22);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      backdrop-filter: blur(12px);
+    }
+    .brand-kicker::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 14px rgba(108,224,181,.8);
+    }
+
+    .brand-content { max-width: 720px; margin: 68px 0; }
+    .brand-content h1 {
+      margin: 0;
+      max-width: 700px;
+      font-size: clamp(46px, 5.7vw, 84px);
+      line-height: .98;
+      letter-spacing: -.055em;
+      font-weight: 780;
+    }
+    .brand-content h1 span {
+      display: block;
+      margin-top: 10px;
+      color: var(--blue-2);
+    }
+    .brand-content p {
+      max-width: 610px;
+      margin: 28px 0 0;
+      color: #aebed0;
+      font-size: clamp(16px, 1.45vw, 20px);
+      line-height: 1.72;
+    }
+
+    .capabilities {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 34px;
+    }
+    .capability {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 38px;
+      padding: 0 13px;
+      border: 1px solid rgba(148,184,215,.14);
+      border-radius: 11px;
+      background: rgba(8, 20, 34, .44);
+      color: #c1d2e3;
+      font-size: 12px;
+      font-weight: 650;
+      letter-spacing: .05em;
+    }
+    .capability i {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--blue-2);
+      box-shadow: 0 0 10px rgba(100,185,255,.62);
+    }
+
+    .brand-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      color: #71869c;
+      font-size: 12px;
+      letter-spacing: .05em;
+    }
+    .brand-footer strong { color: #98adc1; font-weight: 650; }
+
+    .login-side {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: clamp(28px, 4.5vw, 72px);
+      background: linear-gradient(180deg, rgba(10, 22, 37, .62), rgba(5, 12, 21, .84));
+      backdrop-filter: blur(18px);
+    }
+
+    .login-card {
+      width: min(100%, 470px);
+      padding: clamp(30px, 4vw, 46px);
+      border: 1px solid rgba(151, 190, 224, .16);
+      border-radius: 28px;
+      background:
+        linear-gradient(180deg, rgba(18, 36, 58, .78), rgba(7, 17, 29, .92));
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.035);
+      backdrop-filter: blur(26px);
+    }
+
+    .security-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #9ecbf0;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    .security-badge svg { width: 16px; height: 16px; }
+
+    .login-card h2 {
+      margin: 18px 0 8px;
+      font-size: clamp(30px, 3vw, 40px);
+      line-height: 1.08;
+      letter-spacing: -.035em;
+    }
+    .login-card > p {
+      margin: 0 0 30px;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 14px;
+    }
+
+    .field { display: grid; gap: 9px; margin-top: 17px; }
+    .field label {
+      color: #c8d7e6;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .035em;
+    }
+    .input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .input-wrap > svg {
+      position: absolute;
+      left: 15px;
+      width: 18px;
+      height: 18px;
+      color: #6f8aa4;
+      pointer-events: none;
+    }
+    .input-wrap input {
+      width: 100%;
+      height: 54px;
+      padding: 0 48px 0 45px;
+      border: 1px solid rgba(146, 180, 211, .17);
+      border-radius: 14px;
+      outline: none;
+      color: #edf6ff;
+      background: rgba(3, 11, 20, .52);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.02);
+      font: inherit;
+      transition: border-color .2s ease, box-shadow .2s ease, background .2s ease;
+    }
+    .input-wrap input::placeholder { color: #60768d; }
+    .input-wrap input:focus {
+      border-color: rgba(100, 185, 255, .58);
+      background: rgba(7, 17, 29, .7);
+      box-shadow: 0 0 0 4px rgba(45, 143, 232, .11);
+    }
+
+    .password-toggle {
+      position: absolute;
+      right: 8px;
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      border-radius: 10px;
+      color: #7f98b0;
+      background: transparent;
+      cursor: pointer;
+    }
+    .password-toggle:hover { color: #cce8ff; background: rgba(100,185,255,.08); }
+    .password-toggle svg { width: 18px; height: 18px; }
+
+    .login-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 15px;
+      color: #758ca3;
+      font-size: 11px;
+    }
+    .login-meta span:last-child { color: #94b7d7; }
+
+    .error-message {
+      min-height: 20px;
+      margin-top: 13px;
+      color: var(--danger);
+      font-size: 12px;
+      font-weight: 650;
+      opacity: 0;
+      transform: translateY(-3px);
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .error-message.visible { opacity: 1; transform: translateY(0); }
+
+    .submit-btn {
+      width: 100%;
+      height: 56px;
+      margin-top: 5px;
+      border: 0;
+      border-radius: 14px;
+      color: white;
+      background: linear-gradient(135deg, #1478ca 0%, #2d8fe8 52%, #54adf5 100%);
+      box-shadow: 0 16px 30px rgba(25, 111, 183, .28), inset 0 1px 0 rgba(255,255,255,.2);
+      font: inherit;
+      font-weight: 780;
+      letter-spacing: .015em;
+      cursor: pointer;
+      transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
+    }
+    .submit-btn:hover { transform: translateY(-1px); filter: brightness(1.06); box-shadow: 0 20px 36px rgba(25,111,183,.34); }
+    .submit-btn:active { transform: translateY(0); }
+    .submit-btn:disabled { opacity: .72; cursor: wait; }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 25px;
+      padding-top: 22px;
+      border-top: 1px solid rgba(148,184,215,.1);
+      color: #647b91;
+      font-size: 11px;
+      text-align: center;
+    }
+    .card-footer span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 12px rgba(108,224,181,.7);
+    }
+
+    .shake { animation: shake .32s ease; }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      25% { transform: translateX(-7px); }
+      75% { transform: translateX(7px); }
+    }
+
+    @media (max-width: 980px) {
+      .login-shell { grid-template-columns: 1fr; }
+      .brand-side { min-height: 46vh; padding-bottom: 34px; border-right: 0; border-bottom: 1px solid var(--line); }
+      .brand-content { margin: 46px 0 22px; }
+      .brand-content h1 { font-size: clamp(42px, 10vw, 68px); }
+      .brand-footer { display: none; }
+      .login-side { min-height: 54vh; }
+    }
+
+    @media (max-width: 620px) {
+      .brand-side { padding: 28px 22px 30px; }
+      .brand-content { margin: 38px 0 10px; }
+      .brand-content p { font-size: 15px; }
+      .capabilities { margin-top: 24px; }
+      .login-side { padding: 22px 14px 36px; }
+      .login-card { border-radius: 22px; padding: 28px 22px; }
+      .login-meta { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <main class="login-shell">
+    <section class="brand-side" aria-label="CONUTWAY TEZA">
+      <div class="brand-top">
+        <a class="brand-logo" href="./" aria-label="CONUTWAY TEZA">
+          <img src="assets/conutway-teza-logo-crop.svg" alt="CONUTWAY TEZA" />
+        </a>
+        <div class="brand-kicker">International Operations Workspace</div>
+      </div>
+
+      <div class="brand-content">
+        <h1>Controle internacional.<span>Decisões mais seguras.</span></h1>
+        <p>Um ambiente único para organizar cotações, custos, importação, fornecedores, contratos e execução com visão clara do resultado de cada operação.</p>
+        <div class="capabilities" aria-label="Principais recursos">
+          <span class="capability"><i></i> COMEX</span>
+          <span class="capability"><i></i> CUSTOS</span>
+          <span class="capability"><i></i> COTAÇÕES</span>
+          <span class="capability"><i></i> CONTROLE</span>
+        </div>
+      </div>
+
+      <footer class="brand-footer">
+        <span><strong>CONUTWAY TEZA</strong> · BR Workspace</span>
+        <span>China ↔ Brasil</span>
+      </footer>
+    </section>
+
+    <section class="login-side">
+      <form id="loginForm" class="login-card" autocomplete="on" novalidate>
+        <div class="security-badge">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3l7 3v5c0 4.8-2.9 8-7 10-4.1-2-7-5.2-7-10V6l7-3z" stroke="currentColor" stroke-width="1.7"/><path d="M9.2 12.1l1.8 1.8 3.9-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Área de acesso
+        </div>
+        <h2>Bem-vindo.</h2>
+        <p>Entre com suas credenciais para acessar o workspace operacional.</p>
+
+        <div class="field">
+          <label for="username">Usuário</label>
+          <div class="input-wrap">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.7"/><path d="M4.5 20c.8-4.1 3.3-6.2 7.5-6.2s6.7 2.1 7.5 6.2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            <input id="username" name="username" type="text" inputmode="text" autocomplete="username" placeholder="Digite seu usuário" required autofocus />
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="password">Senha</label>
+          <div class="input-wrap">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8 10V7.5a4 4 0 018 0V10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" required />
+            <button id="passwordToggle" class="password-toggle" type="button" aria-label="Mostrar senha" title="Mostrar senha">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2.5 12s3.2-5 9.5-5 9.5 5 9.5 5-3.2 5-9.5 5-9.5-5-9.5-5z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="1.6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="login-meta">
+          <span>Acesso restrito à equipe autorizada.</span>
+          <span>Sessão protegida no navegador</span>
+        </div>
+
+        <div id="loginError" class="error-message" role="alert" aria-live="polite">Usuário ou senha inválidos.</div>
+        <button id="submitBtn" class="submit-btn" type="submit">Entrar no workspace</button>
+
+        <div class="card-footer"><span></span> CONUTWAY TEZA · Ambiente operacional</div>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const AUTH_KEY = 'conutway.auth.v1';
+      const MAX_AGE = 12 * 60 * 60 * 1000;
+      const form = document.getElementById('loginForm');
+      const userInput = document.getElementById('username');
+      const passwordInput = document.getElementById('password');
+      const errorBox = document.getElementById('loginError');
+      const submitBtn = document.getElementById('submitBtn');
+      const toggle = document.getElementById('passwordToggle');
+
+      const hasValidSession = () => {
+        try {
+          const raw = sessionStorage.getItem(AUTH_KEY);
+          if (!raw) return false;
+          const auth = JSON.parse(raw);
+          return auth?.user === 'admin' && Number.isFinite(auth?.issuedAt) && (Date.now() - auth.issuedAt) < MAX_AGE;
+        } catch (_) {
+          return false;
+        }
+      };
+
+      if (hasValidSession()) {
+        window.location.replace('./');
+        return;
+      }
+      sessionStorage.removeItem(AUTH_KEY);
+
+      toggle.addEventListener('click', () => {
+        const visible = passwordInput.type === 'text';
+        passwordInput.type = visible ? 'password' : 'text';
+        toggle.setAttribute('aria-label', visible ? 'Mostrar senha' : 'Ocultar senha');
+        toggle.setAttribute('title', visible ? 'Mostrar senha' : 'Ocultar senha');
+        passwordInput.focus();
+      });
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        errorBox.classList.remove('visible');
+        form.classList.remove('shake');
+
+        const username = userInput.value.trim();
+        const password = passwordInput.value;
+        if (username !== 'admin' || password !== 'admin') {
+          void form.offsetWidth;
+          form.classList.add('shake');
+          errorBox.classList.add('visible');
+          passwordInput.select();
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Acessando...';
+        sessionStorage.setItem(AUTH_KEY, JSON.stringify({
+          user: 'admin',
+          name: 'Administrador',
+          role: 'admin',
+          issuedAt: Date.now()
+        }));
+        window.setTimeout(() => window.location.replace('./'), 180);
+      });
+    })();
+  </script>
+</body>
+</html>
