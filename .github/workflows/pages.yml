@@ -44,13 +44,13 @@ jobs:
       - name: Preparar modo GitHub Pages
         run: python3 .github/scripts/prepare_pages.py _site
 
-      - name: Instalar identidade visual do login
+      - name: Instalar identidade visual premium do login
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p _site/assets
-          cp .github/pages/conutway-brazil-china-hero.svg _site/assets/conutway-brazil-china-hero.svg
-          cp .github/pages/conutway-teza-logo-original.svg _site/assets/conutway-teza-logo-original.svg
+          cp .github/pages/conutway-brazil-china-hero-v2.svg _site/assets/conutway-brazil-china-hero-v2.svg
+          cp .github/pages/conutway-teza-logo-v2.svg _site/assets/conutway-teza-logo-v2.svg
 
       - name: Validar site final e autenticação
         shell: bash
@@ -59,14 +59,14 @@ jobs:
           for f in index.html login.html 404.html app.js styles.css storage.js permissions.js; do
             test -s "_site/$f"
           done
-          test -s _site/assets/conutway-brazil-china-hero.svg
-          test -s _site/assets/conutway-teza-logo-original.svg
+          test -s _site/assets/conutway-brazil-china-hero-v2.svg
+          test -s _site/assets/conutway-teza-logo-v2.svg
           grep -q '<base href="/conutway/">' _site/index.html
           grep -q 'id="pagesAuthGuard"' _site/index.html
           grep -q 'id="pagesLogoutHandler"' _site/index.html
           grep -q 'id="loginForm"' _site/login.html
-          grep -q 'conutway-brazil-china-hero.svg' _site/login.html
-          grep -q 'conutway-teza-logo-original.svg' _site/login.html
+          grep -q 'conutway-brazil-china-hero-v2.svg' _site/login.html
+          grep -q 'conutway-teza-logo-v2.svg' _site/login.html
           grep -q "username !== 'admin' || password !== 'admin'" _site/login.html
           grep -q 'const serverStorageAllowed = () => false;' _site/app.js
           grep -q 'username: "admin"' _site/app.js
