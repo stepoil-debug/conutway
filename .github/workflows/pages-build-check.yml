@@ -1,4 +1,4 @@
-name: Diagnosticar montagem completa do CONUTWAY
+name: Recuperar pacote original completo do CONUTWAY
 
 on:
   pull_request:
@@ -9,114 +9,120 @@ permissions:
   contents: read
 
 jobs:
-  diagnose:
+  recover:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Reconstruir e validar candidatos
+      - name: Inspecionar bootstrap preservado
         shell: bash
         run: |
           set -euo pipefail
-          PREFIX_REF='origin/fix/pages-bundle-integrity'
-          SUFFIX_REF='origin/main'
-
-          mapfile -t PARTS < <(git ls-tree -r --name-only "$PREFIX_REF" .pages-bundle | grep -E '^\.pages-bundle/part-[0-9]+$' | sort -V)
-          : > /tmp/prefix.b64
+          REF='origin/main'
+          mapfile -t PARTS < <(git ls-tree -r --name-only "$REF" .bootstrap | grep -E '^\.bootstrap/part-[0-9]+$' | sort -V)
+          echo "PARTS=${#PARTS[@]}"
+          : > /tmp/bootstrap.b64
           for part in "${PARTS[@]}"; do
-            git show "$PREFIX_REF:$part" | tr -d '\r\n\t ' >> /tmp/prefix.b64
+            git show "$REF:$part" | tr -d '\r\n\t ' > /tmp/current
+            echo "--- $part bytes=$(wc -c < /tmp/current) head=$(head -c 16 /tmp/current) tail=$(tail -c 32 /tmp/current)"
+            cat /tmp/current >> /tmp/bootstrap.b64
           done
-          git show "$SUFFIX_REF:conutway-pages-ready.b64" | tr -d '\r\n\t ' > /tmp/suffix.b64
+          echo "TOTAL=$(wc -c < /tmp/bootstrap.b64) MOD4=$(( $(wc -c < /tmp/bootstrap.b64) % 4 ))"
+          echo "HEAD=$(head -c 64 /tmp/bootstrap.b64)"
+          echo "TAIL=$(tail -c 128 /tmp/bootstrap.b64)"
 
+      - name: Tentar decodificar e recuperar XZ
+        shell: bash
+        run: |
+          set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import base64, io, zipfile, hashlib, re
+          import base64, hashlib, lzma, re, tarfile, zipfile, io
 
-          prefix = Path('/tmp/prefix.b64').read_text().strip()
-          suffix = Path('/tmp/suffix.b64').read_text().strip()
+          s = Path('/tmp/bootstrap.b64').read_text().strip()
+          print('original_len', len(s), 'mod4', len(s)%4, 'tail', s[-120:])
 
-          valid = re.compile(r'^[A-Za-z0-9+/=]+$')
-          print('prefix_len=', len(prefix), 'mod4=', len(prefix) % 4, 'sha256=', hashlib.sha256(prefix.encode()).hexdigest())
-          print('suffix_len=', len(suffix), 'mod4=', len(suffix) % 4, 'sha256=', hashlib.sha256(suffix.encode()).hexdigest())
-          print('prefix_head=', prefix[:32])
-          print('prefix_tail=', prefix[-64:])
-          print('suffix_head=', suffix[:64])
-          print('suffix_tail=', suffix[-64:])
-          print('prefix_valid=', bool(valid.fullmatch(prefix)))
-          print('suffix_valid=', bool(valid.fullmatch(suffix)))
+          candidates = {}
+          candidates['original'] = s
+          for token in ['BPLACEHOLDER', 'PLACEHOLDER', 'PLACEHOLDERB', 'TOBEFILLED']:
+              if token in s:
+                  candidates[f'remove_{token}'] = s.replace(token, '')
+                  print('found token', token, 'count', s.count(token))
 
-          def longest_overlap(a, b):
-              # Maior sufixo de a que é prefixo de b usando KMP.
-              s = b + '\0' + a[-min(len(a), len(b)):]
-              pi = [0] * len(s)
-              for i in range(1, len(s)):
-                  j = pi[i-1]
-                  while j and s[i] != s[j]:
-                      j = pi[j-1]
-                  if s[i] == s[j]:
-                      j += 1
-                  pi[i] = j
-              return min(pi[-1], len(b), len(a))
+          # Tenta cortes no fim, porque os placeholders antigos foram gravados no último segmento.
+          for trim in range(0, 80):
+              t = s[:-trim] if trim else s
+              t2 = re.sub(r'(?:B?PLACEHOLDER)+$', '', t)
+              for name, data in [(f'trim{trim}', t), (f'trim{trim}_stripph', t2)]:
+                  pad = '=' * ((-len(data)) % 4)
+                  candidates[name] = data + pad
 
-          overlap = longest_overlap(prefix, suffix)
-          print('overlap=', overlap)
-          if overlap:
-              print('overlap_text=', suffix[:min(overlap, 80)])
-
-          candidates = {
-              'direct': prefix + suffix,
-              'overlap_join': prefix + suffix[overlap:],
-          }
-
-          # Também tenta pequenos ajustes de fronteira para detectar 1-4 caracteres duplicados/perdidos.
-          for drop_p in range(0, 5):
-              for drop_s in range(0, 5):
-                  candidates[f'dropP{drop_p}_dropS{drop_s}'] = prefix[:-drop_p or None] + suffix[drop_s:]
-
-          seen = set()
-          success = []
-          for name, data in candidates.items():
-              key = hashlib.sha256(data.encode()).hexdigest()
-              if key in seen:
-                  continue
-              seen.add(key)
+          seen=set()
+          best=[]
+          for name,data in candidates.items():
+              h=hashlib.sha256(data.encode()).hexdigest()
+              if h in seen: continue
+              seen.add(h)
               try:
-                  raw = base64.b64decode(data, validate=True)
-              except Exception as e:
-                  print(name, 'decode=FAIL', type(e).__name__, str(e), 'len=', len(data), 'mod4=', len(data)%4)
+                  raw=base64.b64decode(data, validate=True)
+              except Exception:
                   continue
-              ok = zipfile.is_zipfile(io.BytesIO(raw))
-              print(name, 'decode=OK', 'bytes=', len(raw), 'zip=', ok, 'sha256=', hashlib.sha256(raw).hexdigest())
-              if ok:
-                  with zipfile.ZipFile(io.BytesIO(raw)) as z:
-                      names = z.namelist()
-                      print(name, 'files=', len(names), 'first=', names[:10], 'last=', names[-10:])
-                      required = {'index.html','app.js','styles.css','storage.js','permissions.js'}
-                      missing = sorted(required - set(names))
-                      print(name, 'missing_required=', missing)
-                      if not missing:
-                          Path('/tmp/site.b64').write_text(data)
-                          Path('/tmp/site.zip').write_bytes(raw)
-                          success.append(name)
+              if not raw.startswith(b'\xfd7zXZ\x00'):
+                  continue
+              out=b''
+              eof=False
+              err=''
+              try:
+                  dec=lzma.LZMADecompressor(format=lzma.FORMAT_XZ)
+                  out=dec.decompress(raw)
+                  eof=dec.eof
+              except Exception as e:
+                  err=f'{type(e).__name__}: {e}'
+              print(name, 'raw',len(raw),'out',len(out),'eof',eof,'err',err,'out_head',out[:16])
+              if out:
+                  bio=io.BytesIO(out)
+                  iszip=zipfile.is_zipfile(bio)
+                  bio.seek(0)
+                  istar=False
+                  try:
+                      with tarfile.open(fileobj=bio, mode='r:*') as tf:
+                          istar=True
+                          names=tf.getnames()
+                  except Exception:
+                      names=[]
+                  print(name,'zip',iszip,'tar',istar,'names_first',names[:8] if names else [])
+                  best.append((len(out),name,out,eof,iszip,istar))
 
-          print('SUCCESS=', success)
-          if not success:
-              raise SystemExit('Nenhuma combinação produziu um ZIP válido com os arquivos obrigatórios.')
+          if not best:
+              raise SystemExit('Nenhuma variante do bootstrap produziu dados XZ recuperáveis.')
+          best.sort(reverse=True,key=lambda x:x[0])
+          print('BEST',[(x[0],x[1],x[3],x[4],x[5]) for x in best[:10]])
+          out=best[0][2]
+          Path('/tmp/recovered.bin').write_bytes(out)
           PY
 
-      - name: Extrair e validar site recuperado
+          file /tmp/recovered.bin || true
+          ls -lh /tmp/recovered.bin
+
+      - name: Examinar conteúdo recuperado
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf /tmp/site && mkdir -p /tmp/site
-          unzip -q /tmp/site.zip -d /tmp/site
-          find /tmp/site -maxdepth 2 -type f | sort
-          for f in index.html app.js styles.css storage.js permissions.js; do
-            test -s "/tmp/site/$f"
-          done
-          node --check /tmp/site/app.js
-          node --check /tmp/site/storage.js
-          node --check /tmp/site/permissions.js
-          echo "SITE_RECUPERADO_OK"
+          rm -rf /tmp/recovered && mkdir -p /tmp/recovered
+          if unzip -tq /tmp/recovered.bin >/dev/null 2>&1; then
+            echo TYPE=ZIP
+            unzip -q /tmp/recovered.bin -d /tmp/recovered
+          elif tar -tf /tmp/recovered.bin >/dev/null 2>&1; then
+            echo TYPE=TAR
+            tar -xf /tmp/recovered.bin -C /tmp/recovered
+          else
+            echo TYPE=UNKNOWN
+            file /tmp/recovered.bin
+            strings /tmp/recovered.bin | head -100 || true
+            exit 1
+          fi
+          find /tmp/recovered -maxdepth 4 -type f | sort | head -200
+          echo COUNT=$(find /tmp/recovered -type f | wc -l)
+          find /tmp/recovered -type f -name index.html -print
