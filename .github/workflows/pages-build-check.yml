@@ -54,6 +54,9 @@ jobs:
           print('logo_ok chars=', len(logo))
           PY
 
+      - name: Aplicar interface interna premium
+        run: python3 .github/scripts/apply_workspace_premium.py _site
+
       - name: Validar arquivos finais
         shell: bash
         run: |
@@ -64,6 +67,10 @@ jobs:
           grep -q '<base href="/conutway/">' _site/index.html
           grep -q 'id="pagesAuthGuard"' _site/index.html
           grep -q 'id="pagesLogoutHandler"' _site/index.html
+          grep -q 'data-workspace-theme="premium-v1"' _site/index.html
+          grep -q 'CONUTWAY WORKSPACE PREMIUM V1' _site/styles.css
+          grep -q 'assets/conutway-teza-logo-v2.svg' _site/index.html
+          test "$(grep -o 'data-module-target=' _site/index.html | wc -l)" -eq 14
           grep -q 'id="loginForm"' _site/login.html
           grep -q 'target-v2-backup-hero' _site/login.html
           grep -q 'conutway-brazil-china-hero.webp' _site/login.html
