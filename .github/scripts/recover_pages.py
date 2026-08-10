@@ -5,6 +5,7 @@ import base64
 import binascii
 import io
 import lzma
+import re
 import shutil
 import struct
 import subprocess
@@ -28,9 +29,12 @@ def clean_base64(text: str) -> str:
 
 
 def recover_tar_frontend(destination: Path) -> None:
-    # Os nomes foram gravados de forma que a ordem lexicográfica preserva a sequência:
-    # part-00..part-04, part-050..part-076.
-    parts = sorted((ROOT / ".bootstrap").glob("part-*"), key=lambda p: p.name)
+    # Usa apenas os segmentos numéricos originais. Arquivos auxiliares/probes
+    # existentes no diretório não fazem parte do fluxo base64.
+    parts = sorted(
+        (p for p in (ROOT / ".bootstrap").glob("part-*") if re.fullmatch(r"part-\d+", p.name)),
+        key=lambda p: p.name,
+    )
     if not parts:
         raise RuntimeError("Nenhuma parte .bootstrap encontrada.")
 
@@ -70,12 +74,12 @@ def recover_tar_frontend(destination: Path) -> None:
             raise RuntimeError("Diretório app/ não pôde ser recuperado do bootstrap.")
         shutil.copytree(app, destination, dirs_exist_ok=True)
 
-    print(f"bootstrap_tar_bytes={len(tar_bytes)} xz_eof={decoder.eof}")
+    print(f"bootstrap_parts={len(parts)} bootstrap_tar_bytes={len(tar_bytes)} xz_eof={decoder.eof}")
 
 
 def bundle_part_names() -> list[str]:
     result = run("git", "ls-tree", "-r", "--name-only", BUNDLE_REF, ".pages-bundle")
-    names = [line.strip() for line in result.stdout.splitlines() if line.strip().startswith(".pages-bundle/part-")]
+    names = [line.strip() for line in result.stdout.splitlines() if re.fullmatch(r"\.pages-bundle/part-\d+", line.strip())]
     return sorted(names, key=lambda p: int(p.rsplit("-", 1)[1]))
 
 
