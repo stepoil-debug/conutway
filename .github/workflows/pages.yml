@@ -37,12 +37,30 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags origin refs/heads/fix/pages-bundle-integrity:refs/remotes/origin/fix/pages-bundle-integrity
+          git fetch --no-tags origin refs/heads/backup/login-premium-failed-20260810:refs/remotes/origin/backup/login-premium-failed-20260810
 
       - name: Reconstruir frontend completo
         run: python3 .github/scripts/recover_pages.py _site
 
       - name: Preparar modo GitHub Pages
         run: python3 .github/scripts/prepare_pages.py _site
+
+      - name: Instalar assets premium do login
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p _site/assets
+          git show origin/backup/login-premium-failed-20260810:.github/pages/conutway-brazil-china-hero-v2.webp.b64 | tr -d '\r\n' | base64 --decode > _site/assets/conutway-brazil-china-hero.webp
+          git show origin/backup/login-premium-failed-20260810:.github/pages/conutway-teza-logo-v2.svg > _site/assets/conutway-teza-logo-v2.svg
+          python3 - <<'PY'
+          from pathlib import Path
+          hero = Path('_site/assets/conutway-brazil-china-hero.webp').read_bytes()
+          assert len(hero) > 20000, len(hero)
+          assert hero[:4] == b'RIFF' and hero[8:12] == b'WEBP'
+          logo = Path('_site/assets/conutway-teza-logo-v2.svg').read_text(encoding='utf-8')
+          assert '<svg' in logo and 'CONUTWAY' in logo
+          print(f'hero_bytes={len(hero)} logo_chars={len(logo)}')
+          PY
 
       - name: Validar site final e autenticação
         shell: bash
@@ -51,10 +69,15 @@ jobs:
           for f in index.html login.html 404.html app.js styles.css storage.js permissions.js; do
             test -s "_site/$f"
           done
+          test -s _site/assets/conutway-brazil-china-hero.webp
+          test -s _site/assets/conutway-teza-logo-v2.svg
           grep -q '<base href="/conutway/">' _site/index.html
           grep -q 'id="pagesAuthGuard"' _site/index.html
           grep -q 'id="pagesLogoutHandler"' _site/index.html
           grep -q 'id="loginForm"' _site/login.html
+          grep -q 'premium-assets-v5' _site/login.html
+          grep -q 'conutway-brazil-china-hero.webp' _site/login.html
+          grep -q 'conutway-teza-logo-v2.svg' _site/login.html
           grep -q "username !== 'admin' || password !== 'admin'" _site/login.html
           grep -q 'const serverStorageAllowed = () => false;' _site/app.js
           grep -q 'username: "admin"' _site/app.js
