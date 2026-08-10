@@ -7,6 +7,7 @@ const report = {
   loginStatus: null,
   buildMarker: null,
   heroVisible: false,
+  heroUsesEmbeddedImage: false,
   logoVisible: false,
   invalidCredentialRejected: false,
   validCredentialAccepted: false,
@@ -60,7 +61,9 @@ try {
   if (!report.heroVisible) fail('Arte do hero não ficou visível.');
   const heroBox = await hero.boundingBox();
   if (!heroBox || heroBox.width < 650 || heroBox.height < 600) fail(`Hero com dimensões inesperadas: ${JSON.stringify(heroBox)}`);
-  if ((await page.locator('.hero-art path').count()) < 3) fail('Ilustração do avião/rota não foi renderizada.');
+  const bg = await hero.evaluate((el) => getComputedStyle(el).backgroundImage);
+  report.heroUsesEmbeddedImage = bg.includes('data:image/webp;base64,');
+  if (!report.heroUsesEmbeddedImage) fail('A imagem enviada pelo usuário não está aplicada ao hero.');
 
   const logo = page.locator('.logo');
   report.logoVisible = await logo.isVisible();
