@@ -1,0 +1,84 @@
+name: QA visual do login CONUTWAY
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  qa-login-visual:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Aguardar novo login publicado
+        shell: bash
+        run: |
+          set -euo pipefail
+          READY=0
+          for n in $(seq 1 48); do
+            HTML=$(curl -fsS --max-time 15 https://stepoil-debug.github.io/conutway/login.html || true)
+            if printf '%s' "$HTML" | grep -q 'conutway-brazil-china-hero.svg' && printf '%s' "$HTML" | grep -q 'conutway-teza-logo-original.svg'; then
+              READY=1
+              break
+            fi
+            echo "Aguardando identidade visual publicada... tentativa $n/48"
+            sleep 5
+          done
+          test "$READY" -eq 1
+          curl -fsS https://stepoil-debug.github.io/conutway/assets/conutway-brazil-china-hero.svg >/dev/null
+          curl -fsS https://stepoil-debug.github.io/conutway/assets/conutway-teza-logo-original.svg >/dev/null
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Instalar Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Validar visual e acesso
+        shell: bash
+        run: |
+          cat > /tmp/qa.mjs <<'JS'
+          import { chromium } from 'playwright';
+          const browser = await chromium.launch({ headless: true });
+          const page = await browser.newPage({ viewport: { width: 1600, height: 900 } });
+          const errors=[];
+          page.on('console', m => { if(m.type()==='error') errors.push(m.text()); });
+          page.on('pageerror', e => errors.push(String(e)));
+          const r=await page.goto('https://stepoil-debug.github.io/conutway/login.html',{waitUntil:'networkidle',timeout:30000});
+          if(r?.status()!==200) throw new Error(`HTTP ${r?.status()}`);
+          await page.locator('.logo-card img').waitFor({state:'visible'});
+          await page.locator('.hero img').waitFor({state:'visible'});
+          const logoOk=await page.locator('.logo-card img').evaluate(el=>el.complete && el.naturalWidth>100);
+          const heroOk=await page.locator('.hero img').evaluate(el=>el.complete && el.naturalWidth>300);
+          if(!logoOk) throw new Error('Logo não carregou corretamente.');
+          if(!heroOk) throw new Error('Imagem Brasil-China não carregou corretamente.');
+          const h1=await page.locator('.visual-copy h1').innerText();
+          if(!h1.includes('Controle internacional')) throw new Error('Headline visual ausente.');
+          await page.locator('#username').fill('admin');
+          await page.locator('#password').fill('admin');
+          await page.locator('#submitBtn').click();
+          await page.waitForURL(u=>u.pathname==='/conutway/' || u.pathname==='/conutway',{timeout:15000});
+          if(errors.length) throw new Error(errors.join(' | '));
+          await page.screenshot({path:'qa-login-visual.png',fullPage:true});
+          console.log(JSON.stringify({ok:true,logoOk,heroOk,url:page.url()},null,2));
+          await browser.close();
+          JS
+          node /tmp/qa.mjs
+
+      - name: Guardar evidência
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-login-visual
+          path: qa-login-visual.png
+          if-no-files-found: warn
+          retention-days: 7
