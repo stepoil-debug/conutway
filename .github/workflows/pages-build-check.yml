@@ -56,7 +56,7 @@ jobs:
           grep -q 'conutway-brazil-china-hero-user.webp' _site/login.html
           grep -q 'conutway-teza-logo-user.webp' _site/login.html
           grep -q 'class="hero-image"' _site/login.html
-          grep -q 'class="logo-card"' _site/login.html
+          grep -q 'class="brand-logo"' _site/login.html
           grep -q "username!=='admin'||password!=='admin'" _site/login.html
           grep -q "sessionStorage.setItem('conutway.auth.v1'" _site/login.html
           grep -q 'const serverStorageAllowed = () => false;' _site/app.js
