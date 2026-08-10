@@ -22,18 +22,16 @@ jobs:
         run: |
           set -euo pipefail
 
-          mapfile -t PARTES < <(find .bootstrap -maxdepth 1 -type f -name 'part-*' -print | sort -V)
+          mapfile -t PARTES < <(find .bootstrap -maxdepth 1 -type f -regextype posix-extended -regex '.*/part-[0-9]+' -print | sort -V)
+          echo "Partes encontradas: ${#PARTES[@]}"
+          printf '%s\n' "${PARTES[@]}"
           if [ "${#PARTES[@]}" -lt 10 ]; then
             echo "Quantidade inesperada de partes: ${#PARTES[@]}"
-            printf '%s\n' "${PARTES[@]}"
             exit 1
           fi
 
-          echo "Partes encontradas: ${#PARTES[@]}"
-          echo "Primeira: ${PARTES[0]}"
-          echo "Última: ${PARTES[-1]}"
-
           cat "${PARTES[@]}" | tr -d '\r\n\t ' | base64 --decode > /tmp/conutway-package.xz
+          echo "Tamanho XZ: $(stat -c%s /tmp/conutway-package.xz) bytes"
           xz -t /tmp/conutway-package.xz
           xz -dc /tmp/conutway-package.xz > /tmp/conutway-package.bin
 
@@ -91,7 +89,7 @@ jobs:
           test ! -e _site/rfq-server-service.js
           test ! -e _site/workspace-rfq-client.js
           grep -q '<base href="/conutway/">' _site/index.html
-          grep -q 'id="logoutBtn" hidden' _site/index.html
+          grep -Eq 'id="logoutBtn"[^>]* hidden' _site/index.html
           grep -q 'const serverStorageAllowed = () => false;' _site/app.js
           grep -q 'activeUserSurface: "roster"' _site/app.js
           grep -q 'const authVisible = isCurrentUserAdmin() && serverStorageAllowed();' _site/app.js
