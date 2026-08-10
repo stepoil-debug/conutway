@@ -1,0 +1,1 @@
+QA v6: extrair o hero WebP diretamente do SVG preservado e validar o fluxo completo de login.
