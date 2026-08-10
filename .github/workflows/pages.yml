@@ -43,40 +43,21 @@ jobs:
       - name: Preparar modo GitHub Pages
         run: python3 .github/scripts/prepare_pages.py _site
 
-      - name: Copiar assets binários premium
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p _site/assets
-          cp .github/pages/conutway-brazil-china-hero-v7.webp _site/assets/conutway-brazil-china-hero-v7.webp
-          cp .github/pages/conutway-teza-logo-v7.webp _site/assets/conutway-teza-logo-v7.webp
-          python3 - <<'PY'
-          from pathlib import Path
-          for path, minimum in [
-              ('_site/assets/conutway-brazil-china-hero-v7.webp', 15000),
-              ('_site/assets/conutway-teza-logo-v7.webp', 2000),
-          ]:
-              b = Path(path).read_bytes()
-              assert len(b) > minimum, (path, len(b))
-              assert b[:4] == b'RIFF' and b[8:12] == b'WEBP', path
-              print(path, len(b), 'bytes')
-          PY
-
-      - name: Validar site final e autenticação
+      - name: Validar site final e login premium autocontido
         shell: bash
         run: |
           set -euo pipefail
           for f in index.html login.html 404.html app.js styles.css storage.js permissions.js; do test -s "_site/$f"; done
-          test -s _site/assets/conutway-brazil-china-hero-v7.webp
-          test -s _site/assets/conutway-teza-logo-v7.webp
           grep -q '<base href="/conutway/">' _site/index.html
           grep -q 'id="pagesAuthGuard"' _site/index.html
           grep -q 'id="pagesLogoutHandler"' _site/index.html
           grep -q 'id="loginForm"' _site/login.html
-          grep -q 'premium-assets-v7' _site/login.html
-          grep -q 'conutway-brazil-china-hero-v7.webp' _site/login.html
-          grep -q 'conutway-teza-logo-v7.webp' _site/login.html
-          grep -q "username !== 'admin' || password !== 'admin'" _site/login.html
+          grep -q 'premium-inline-v8' _site/login.html
+          grep -q 'class="hero-art"' _site/login.html
+          grep -q 'class="logo"' _site/login.html
+          grep -q 'BRASIL' _site/login.html
+          grep -q 'CHINA' _site/login.html
+          grep -q "username!=='admin'||password!=='admin'" _site/login.html
           grep -q 'const serverStorageAllowed = () => false;' _site/app.js
           grep -q 'username: "admin"' _site/app.js
           node --check _site/app.js
@@ -111,10 +92,12 @@ jobs:
     steps:
       - name: Baixar repositório
         uses: actions/checkout@v4
+
       - name: Preparar Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
+
       - name: Instalar navegador de auditoria
         shell: bash
         run: |
@@ -122,8 +105,10 @@ jobs:
           npm init -y >/dev/null 2>&1
           npm install --no-save playwright
           npx playwright install --with-deps chromium
+
       - name: Testar login e logout no site publicado
         run: node .github/scripts/pages-login-audit.mjs
+
       - name: Anexar evidências
         if: always()
         uses: actions/upload-artifact@v4
