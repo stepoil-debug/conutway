@@ -1,0 +1,59 @@
+name: QA login publicado do CONUTWAY
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  live-login:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Aguardar nova tela publicada
+        shell: bash
+        run: |
+          set -euo pipefail
+          READY=0
+          for n in $(seq 1 48); do
+            if curl -fsS --max-time 15 https://stepoil-debug.github.io/conutway/login.html | grep -q 'Entrar no workspace'; then
+              READY=1
+              break
+            fi
+            echo "Aguardando deploy do login... tentativa $n/48"
+            sleep 5
+          done
+          test "$READY" -eq 1
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Instalar Chromium
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Testar login admin e logout
+        run: node .github/scripts/pages-login-audit.mjs
+
+      - name: Guardar evidências
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-login-live
+          path: |
+            pages-login-audit.json
+            pages-login-audit.png
+          if-no-files-found: warn
+          retention-days: 7
