@@ -5,6 +5,8 @@ const BASE = 'https://stepoil-debug.github.io/conutway/';
 const report = {
   startedAt: new Date().toISOString(),
   loginStatus: null,
+  heroLoaded: false,
+  heroBackground: null,
   invalidCredentialRejected: false,
   validCredentialAccepted: false,
   logoutWorked: false,
@@ -36,6 +38,13 @@ try {
   if (report.loginStatus !== 200) fail(`login.html respondeu HTTP ${report.loginStatus}`);
   if (!(await page.locator('#loginForm').isVisible())) fail('Formulário de login não ficou visível.');
   if (!((await page.title()).includes('CONUTWAY TEZA'))) fail(`Título inesperado no login: ${await page.title()}`);
+
+  const hero = page.locator('.hero-photo');
+  await hero.waitFor({ state: 'attached', timeout: 5000 });
+  await page.waitForFunction(() => document.querySelector('.hero-photo')?.dataset.loaded === 'true', null, { timeout: 10000 });
+  report.heroBackground = await hero.evaluate((element) => getComputedStyle(element).backgroundImage);
+  report.heroLoaded = report.heroBackground.includes('data:image/webp;base64,');
+  if (!report.heroLoaded) fail('Arte Brasil-China não foi aplicada ao fundo do login.');
 
   await page.locator('#username').fill('admin');
   await page.locator('#password').fill('senha-incorreta');
