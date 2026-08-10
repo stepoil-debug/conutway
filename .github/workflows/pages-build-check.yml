@@ -37,15 +37,23 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p _site/assets
-          git show origin/backup/login-premium-failed-20260810:.github/pages/conutway-brazil-china-hero-v2.webp.b64 | tr -d '\r\n' | base64 --decode > _site/assets/conutway-brazil-china-hero.webp
+          git show origin/backup/login-premium-failed-20260810:.github/pages/conutway-brazil-china-hero-v2.svg > /tmp/conutway-hero-source.svg
           git show origin/backup/login-premium-failed-20260810:.github/pages/conutway-teza-logo-v2.svg > _site/assets/conutway-teza-logo-v2.svg
           python3 - <<'PY'
           from pathlib import Path
-          hero = Path('_site/assets/conutway-brazil-china-hero.webp').read_bytes()
-          assert len(hero) > 20000, len(hero)
-          assert hero[:4] == b'RIFF' and hero[8:12] == b'WEBP'
+          import base64, re
+          text = Path('/tmp/conutway-hero-source.svg').read_text(encoding='utf-8')
+          match = re.search(r'data:image/webp;base64,([^\"]+)', text, flags=re.S)
+          if not match:
+              raise SystemExit('Hero WebP embutido não encontrado no SVG preservado')
+          encoded = re.sub(r'\s+', '', match.group(1))
+          hero = base64.b64decode(encoded, validate=True)
+          if len(hero) <= 20000 or hero[:4] != b'RIFF' or hero[8:12] != b'WEBP':
+              raise SystemExit(f'Hero extraído inválido: {len(hero)} bytes')
+          Path('_site/assets/conutway-brazil-china-hero.webp').write_bytes(hero)
           logo = Path('_site/assets/conutway-teza-logo-v2.svg').read_text(encoding='utf-8')
-          assert '<svg' in logo and 'CONUTWAY' in logo
+          if '<svg' not in logo or 'CONUTWAY' not in logo:
+              raise SystemExit('Logo SVG inválida')
           print(f'hero_bytes={len(hero)} logo_chars={len(logo)}')
           PY
 
