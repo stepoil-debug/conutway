@@ -1,4 +1,4 @@
-name: Mapear bundles do CONUTWAY
+name: Validar prefixo preservado do CONUTWAY
 
 on:
   pull_request:
@@ -15,51 +15,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Testar todos os bundles preservados
+      - name: Calcular hash do bundle preservado
         shell: bash
         run: |
-          set -u
-          REFS=(
-            origin/main
-            origin/fix/github-pages-static-bundle-v2
-            origin/fix/pages-bundle-integrity
-            origin/fix/pages-direct-bundle-v3
-            origin/fix/pages-live-audit-v2
-            origin/fix/pages-static-bundle
-          )
-          DIRS=(.pages-bundle .pages-direct .bootstrap)
-          FOUND=0
-          for ref in "${REFS[@]}"; do
-            echo "========== $ref =========="
-            for dir in "${DIRS[@]}"; do
-              mapfile -t PARTS < <(git ls-tree -r --name-only "$ref" "$dir" 2>/dev/null | grep -E "^${dir//./\\.}/part-[0-9]+$" | sort -V)
-              [ "${#PARTS[@]}" -gt 0 ] || continue
-              FOUND=$((FOUND+1))
-              tmp="/tmp/$(echo "$ref-$dir" | tr '/.' '__')"
-              : > "$tmp"
-              invalid=0
-              for part in "${PARTS[@]}"; do
-                content="$(git show "$ref:$part" 2>/dev/null | tr -d '\r\n\t ')"
-                if ! printf '%s' "$content" | LC_ALL=C grep -Eq '^[A-Za-z0-9+/=]+$'; then invalid=$((invalid+1)); fi
-                printf '%s' "$content" >> "$tmp"
-              done
-              chars=$(wc -c < "$tmp")
-              mod=$((chars % 4))
-              eq=$(tr -cd '=' < "$tmp" | wc -c)
-              head=$(head -c 12 "$tmp")
-              tail=$(tail -c 12 "$tmp")
-              echo "$dir parts=${#PARTS[@]} chars=$chars mod4=$mod equals=$eq invalidParts=$invalid head=$head tail=$tail"
-              if [ "$invalid" -eq 0 ]; then
-                if base64 --decode "$tmp" > "$tmp.bin" 2>/dev/null; then
-                  echo "  base64=OK bytes=$(wc -c < "$tmp.bin") file=$(file -b "$tmp.bin")"
-                  if xz -t "$tmp.bin" 2>/dev/null; then echo "  xz=OK"; fi
-                  if unzip -tq "$tmp.bin" >/dev/null 2>&1; then echo "  zip=OK"; fi
-                  if tar -tf "$tmp.bin" >/dev/null 2>&1; then echo "  tar=OK"; fi
-                else
-                  echo "  base64=FAIL"
-                fi
-              fi
-            done
-          done
-          echo "Fontes avaliadas: $FOUND"
-          test "$FOUND" -gt 0
+          set -euo pipefail
+          REF='origin/fix/pages-bundle-integrity'
+          mapfile -t PARTS < <(git ls-tree -r --name-only "$REF" .pages-bundle | grep -E '^\.pages-bundle/part-[0-9]+$' | sort -V)
+          : > /tmp/prefix.b64
+          for part in "${PARTS[@]}"; do git show "$REF:$part" | tr -d '\r\n\t ' >> /tmp/prefix.b64; done
+          echo "chars=$(wc -c < /tmp/prefix.b64)"
+          echo "sha256=$(sha256sum /tmp/prefix.b64 | awk '{print $1}')"
+          echo "tail=$(tail -c 64 /tmp/prefix.b64)"
