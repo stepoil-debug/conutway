@@ -9,6 +9,7 @@ on:
       - '.github/pages/**'
       - '.github/scripts/recover_pages.py'
       - '.github/scripts/prepare_pages.py'
+      - '.github/scripts/pages-login-audit.mjs'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -82,3 +83,39 @@ jobs:
       - name: Publicar no GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  verify-login:
+    runs-on: ubuntu-latest
+    needs: deploy
+    timeout-minutes: 10
+
+    steps:
+      - name: Baixar repositório
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Instalar navegador de auditoria
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Testar login e logout no site publicado
+        run: node .github/scripts/pages-login-audit.mjs
+
+      - name: Anexar evidências
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conutway-pages-login-audit
+          path: |
+            pages-login-audit.json
+            pages-login-audit.png
+          if-no-files-found: warn
+          retention-days: 7
