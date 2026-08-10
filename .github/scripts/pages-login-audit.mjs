@@ -2,11 +2,13 @@ import fs from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 const BASE = 'https://stepoil-debug.github.io/conutway/';
+const HERO = `${BASE}assets/conutway-brazil-china-hero-v2.webp`;
 const report = {
   startedAt: new Date().toISOString(),
   loginStatus: null,
+  heroStatus: null,
   heroLoaded: false,
-  heroBackground: null,
+  heroNaturalWidth: 0,
   invalidCredentialRejected: false,
   validCredentialAccepted: false,
   logoutWorked: false,
@@ -23,28 +25,42 @@ const page = await context.newPage();
 page.on('console', (message) => {
   if (message.type() === 'error') report.consoleErrors.push(message.text());
 });
-page.on('pageerror', (error) => report.pageErrors.push(String(error)));
+page.on('pageerror', (error) => report.pageErrors.push(String(error));
 page.on('requestfailed', (request) => {
   report.requestFailures.push(`${request.method()} ${request.url()} :: ${request.failure()?.errorText || 'failed'}`);
 });
 
-const fail = (message) => {
-  throw new Error(message);
-};
+const fail = (message) => { throw new Error(message); };
 
 try {
+  const heroResponse = await page.request.get(HERO, { timeout: 15000 });
+  report.heroStatus = heroResponse.status();
+  if (report.heroStatus !== 200) fail(`Hero respondeu HTTP ${report.heroStatus}`);
+  const heroType = heroResponse.headers()['content-type'] || '';
+  if (!heroType.includes('image/webp') && !heroType.includes('application/octet-stream')) {
+    fail(`Content-Type inesperado do hero: ${heroType}`);
+  }
+
   const loginResponse = await page.goto(`${BASE}login.html`, { waitUntil: 'networkidle', timeout: 30000 });
   report.loginStatus = loginResponse?.status() ?? null;
   if (report.loginStatus !== 200) fail(`login.html respondeu HTTP ${report.loginStatus}`);
   if (!(await page.locator('#loginForm').isVisible())) fail('Formulário de login não ficou visível.');
   if (!((await page.title()).includes('CONUTWAY TEZA'))) fail(`Título inesperado no login: ${await page.title()}`);
 
-  const hero = page.locator('.hero-photo');
+  const hero = page.locator('.hero-bg');
   await hero.waitFor({ state: 'attached', timeout: 5000 });
-  await page.waitForFunction(() => document.querySelector('.hero-photo')?.dataset.loaded === 'true', null, { timeout: 10000 });
-  report.heroBackground = await hero.evaluate((element) => getComputedStyle(element).backgroundImage);
-  report.heroLoaded = report.heroBackground.includes('data:image/webp;base64,');
-  if (!report.heroLoaded) fail('Arte Brasil-China não foi aplicada ao fundo do login.');
+  const background = await hero.evaluate((element) => getComputedStyle(element).backgroundImage);
+  if (!background.includes('conutway-brazil-china-hero-v2.webp')) fail(`Background do hero inesperado: ${background}`);
+
+  const dimensions = await page.evaluate(async (src) => {
+    const image = new Image();
+    image.src = src;
+    await image.decode();
+    return { width: image.naturalWidth, height: image.naturalHeight };
+  }, HERO);
+  report.heroNaturalWidth = dimensions.width;
+  report.heroLoaded = dimensions.width >= 700 && dimensions.height >= 300;
+  if (!report.heroLoaded) fail(`Hero não decodificou corretamente: ${dimensions.width}x${dimensions.height}`);
 
   await page.locator('#username').fill('admin');
   await page.locator('#password').fill('senha-incorreta');
