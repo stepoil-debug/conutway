@@ -43,9 +43,21 @@ def main() -> int:
     )
     app = replace_once(
         app,
+        'activeUserSurface: "auth",',
+        'activeUserSurface: "roster",',
+        "superfície de usuários compatível com Pages",
+    )
+    app = replace_once(
+        app,
         'function canCurrentUserAccessModule(moduleName = "") {\n  if (window.BrErpPermissions?.canAccessModule) return window.BrErpPermissions.canAccessModule(currentAuthUser(), moduleName);',
         'function canCurrentUserAccessModule(moduleName = "") {\n  if (["documents", "internalRfqs"].includes(moduleName)) return false;\n  if (window.BrErpPermissions?.canAccessModule) return window.BrErpPermissions.canAccessModule(currentAuthUser(), moduleName);',
         "módulos compatíveis",
+    )
+    app = replace_once(
+        app,
+        "  const authVisible = isCurrentUserAdmin();",
+        "  const authVisible = isCurrentUserAdmin() && serverStorageAllowed();",
+        "administração de autenticação somente com backend",
     )
     app = replace_once(
         app,
@@ -85,6 +97,15 @@ def main() -> int:
             count=1,
             flags=re.IGNORECASE,
         )
+
+    # Sair e administração de autenticação não têm ação válida sem backend.
+    html = re.sub(
+        r'(<button\b[^>]*\bid=["\']logoutBtn["\'][^>]*)(>)',
+        lambda match: match.group(1) + (" hidden" if " hidden" not in match.group(1) else "") + match.group(2),
+        html,
+        count=1,
+        flags=re.IGNORECASE,
+    )
 
     banner = (
         '<div class="pages-mode-banner" role="status">'
