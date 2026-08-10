@@ -28,7 +28,9 @@ def clean_base64(text: str) -> str:
 
 
 def recover_tar_frontend(destination: Path) -> None:
-    parts = sorted((ROOT / ".bootstrap").glob("part-*"), key=lambda p: tuple(int(x) if x.isdigit() else x for x in p.name.replace("part-", "").split("-")))
+    # Os nomes foram gravados de forma que a ordem lexicográfica preserva a sequência:
+    # part-00..part-04, part-050..part-076.
+    parts = sorted((ROOT / ".bootstrap").glob("part-*"), key=lambda p: p.name)
     if not parts:
         raise RuntimeError("Nenhuma parte .bootstrap encontrada.")
 
