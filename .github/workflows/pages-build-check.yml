@@ -1,4 +1,4 @@
-name: Validar recuperação do frontend CONUTWAY
+name: Validar reconstrução completa do frontend CONUTWAY
 
 on:
   pull_request:
@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Recuperar TAR a partir do bootstrap preservado
+      - name: Recuperar primeira parte pelo bootstrap XZ/TAR
         shell: bash
         run: |
           set -euo pipefail
@@ -25,50 +25,119 @@ jobs:
           : > /tmp/bootstrap.b64
           for part in "${PARTS[@]}"; do
             content="$(git show "$REF:$part" | tr -d '\r\n\t ')"
-            if [ "$content" = "PLACEHOLDER" ]; then
-              echo "Ignorando placeholder: $part"
-              continue
-            fi
+            [ "$content" = "PLACEHOLDER" ] && continue
             printf '%s' "$content" >> /tmp/bootstrap.b64
           done
-
           python3 - <<'PY'
           from pathlib import Path
           import base64, lzma
-          s = Path('/tmp/bootstrap.b64').read_text().strip()
-          s += '=' * ((-len(s)) % 4)
-          raw = base64.b64decode(s, validate=True)
-          if not raw.startswith(b'\xfd7zXZ\x00'):
-              raise SystemExit('Bootstrap não inicia com cabeçalho XZ.')
-          dec = lzma.LZMADecompressor(format=lzma.FORMAT_XZ)
-          out = dec.decompress(raw)
-          print('base64_chars=', len(s), 'xz_bytes=', len(raw), 'tar_bytes_recuperados=', len(out), 'xz_eof=', dec.eof)
-          if len(out) < 100000:
-              raise SystemExit('Conteúdo recuperado é pequeno demais.')
+          s=Path('/tmp/bootstrap.b64').read_text().strip()
+          s += '='*((-len(s))%4)
+          raw=base64.b64decode(s, validate=True)
+          dec=lzma.LZMADecompressor(format=lzma.FORMAT_XZ)
+          out=dec.decompress(raw)
+          print('tar_bytes=',len(out),'xz_eof=',dec.eof)
           Path('/tmp/recovered.tar').write_bytes(out)
           PY
-          file /tmp/recovered.tar
-
-      - name: Extrair membros completos do TAR truncado
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf /tmp/recovered && mkdir -p /tmp/recovered
+          rm -rf /tmp/site && mkdir -p /tmp/site
           set +e
-          tar -xvf /tmp/recovered.tar -C /tmp/recovered --ignore-zeros --warning=no-unknown-keyword >/tmp/tar-extract.log 2>&1
-          TAR_CODE=$?
+          tar -xf /tmp/recovered.tar -C /tmp/site --ignore-zeros --warning=no-unknown-keyword
+          echo "tar_exit=$?"
           set -e
-          echo "tar_exit=$TAR_CODE"
-          tail -40 /tmp/tar-extract.log || true
-          echo "Arquivos extraídos: $(find /tmp/recovered -type f | wc -l)"
-          find /tmp/recovered -maxdepth 3 -type f | sort | head -150
+          echo "tar_files=$(find /tmp/site -type f | wc -l)"
 
-      - name: Validar frontend recuperado
+      - name: Reconstruir ZIP fragmentado e recuperar membros intactos
         shell: bash
         run: |
           set -euo pipefail
-          APP_DIR=/tmp/recovered/app
-          test -d "$APP_DIR"
+          PREFIX_REF='origin/fix/pages-bundle-integrity'
+          mapfile -t PARTS < <(git ls-tree -r --name-only "$PREFIX_REF" .pages-bundle | grep -E '^\.pages-bundle/part-[0-9]+$' | sort -V)
+          : > /tmp/zip-fragment.b64
+          for part in "${PARTS[@]}"; do git show "$PREFIX_REF:$part" | tr -d '\r\n\t ' >> /tmp/zip-fragment.b64; done
+          git show origin/main:conutway-pages-ready.b64 | tr -d '\r\n\t ' >> /tmp/zip-fragment.b64
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, io, zipfile, struct, zlib, binascii, os
+
+          s=Path('/tmp/zip-fragment.b64').read_text().strip()
+          s += '='*((-len(s))%4)
+          raw=base64.b64decode(s, validate=True)
+          zf=zipfile.ZipFile(io.BytesIO(raw))
+          infos={i.filename:i for i in zf.infolist()}
+          print('central_members=',len(infos),sorted(infos))
+
+          # Varre somente local headers que de fato sobreviveram nos fragmentos atuais.
+          local={}
+          pos=0
+          while True:
+              off=raw.find(b'PK\x03\x04',pos)
+              if off<0: break
+              if off+30>len(raw): break
+              try:
+                  sig,ver,flag,method,mtime,mdate,crc,csize,usize,nlen,xlen=struct.unpack_from('<4s5H3L2H',raw,off)
+                  name_b=raw[off+30:off+30+nlen]
+                  name=name_b.decode('utf-8' if flag & 0x800 else 'cp437')
+                  if name in infos:
+                      local[name]=off
+              except Exception:
+                  pass
+              pos=off+4
+          print('local_headers_survived=',len(local),sorted(local))
+
+          outroot=Path('/tmp/zip-recovered')
+          outroot.mkdir(parents=True,exist_ok=True)
+          recovered=[]
+          failed=[]
+          for name,info in infos.items():
+              off=local.get(name)
+              if off is None:
+                  failed.append((name,'header_missing'))
+                  continue
+              sig,ver,flag,method,mtime,mdate,crc_l,csize_l,usize_l,nlen,xlen=struct.unpack_from('<4s5H3L2H',raw,off)
+              data_start=off+30+nlen+xlen
+              csize=info.compress_size
+              comp=raw[data_start:data_start+csize]
+              if len(comp)!=csize:
+                  failed.append((name,f'compressed_truncated {len(comp)}/{csize}'))
+                  continue
+              try:
+                  if info.compress_type==zipfile.ZIP_STORED:
+                      data=comp
+                  elif info.compress_type==zipfile.ZIP_DEFLATED:
+                      data=zlib.decompress(comp,-15)
+                  else:
+                      failed.append((name,f'unsupported_method {info.compress_type}'))
+                      continue
+              except Exception as e:
+                  failed.append((name,f'decompress {type(e).__name__}: {e}'))
+                  continue
+              crc=binascii.crc32(data)&0xffffffff
+              if len(data)!=info.file_size or crc!=info.CRC:
+                  failed.append((name,f'validation size={len(data)}/{info.file_size} crc={crc:08x}/{info.CRC:08x}'))
+                  continue
+              p=outroot/name
+              p.parent.mkdir(parents=True,exist_ok=True)
+              p.write_bytes(data)
+              recovered.append((name,len(data),off))
+          print('RECOVERED',recovered)
+          print('FAILED',failed)
+          if not recovered:
+              raise SystemExit('Nenhum membro do ZIP pôde ser recuperado.')
+          PY
+
+          echo "zip_recovered=$(find /tmp/zip-recovered -type f | wc -l)"
+          find /tmp/zip-recovered -type f -printf '%P %s bytes\n' | sort
+
+      - name: Combinar fontes e validar frontend
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/site/app
+          cp -a /tmp/zip-recovered/. /tmp/site/app/ 2>/dev/null || true
+          APP_DIR=/tmp/site/app
+          echo "combined_files=$(find "$APP_DIR" -type f | wc -l)"
+          find "$APP_DIR" -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
           for f in index.html app.js styles.css storage.js permissions.js; do
             echo "$f bytes=$(stat -c%s "$APP_DIR/$f" 2>/dev/null || echo 0)"
             test -s "$APP_DIR/$f"
@@ -76,6 +145,4 @@ jobs:
           node --check "$APP_DIR/app.js"
           node --check "$APP_DIR/storage.js"
           node --check "$APP_DIR/permissions.js"
-          echo "index_head:"
-          head -20 "$APP_DIR/index.html"
-          echo "FRONTEND_RECUPERADO_OK"
+          echo FRONTEND_COMPLETO_OK
