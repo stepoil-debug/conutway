@@ -1,0 +1,1 @@
+QA limpo após correção do decodificador do hero preservado.
