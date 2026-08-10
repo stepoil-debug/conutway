@@ -4,10 +4,15 @@ import { chromium } from 'playwright';
 const BASE = 'https://stepoil-debug.github.io/conutway/';
 const HERO = `${BASE}assets/conutway-brazil-china-hero.webp`;
 const LOGO = `${BASE}assets/conutway-teza-logo-v2.svg`;
+const EXPECTED_MODULES = [
+  'dashboard','internalRfqs','customers','projects','contracts','projectAccounts',
+  'suppliers','purchaseOrders','inventory','products','options','documents','sellers','users'
+];
 const report = {
   startedAt: new Date().toISOString(), loginStatus: null, buildMarker: null,
   heroStatus: null, heroBytes: null, heroVisible: false, heroBox: null,
   heroNaturalWidth: null, heroNaturalHeight: null, logoStatus: null, logoVisible: false,
+  workspaceTheme: null, workspaceModules: [], workspaceBrandLogo: null, workspaceSidebarWidth: null,
   invalidCredentialRejected: false, validCredentialAccepted: false, logoutWorked: false,
   consoleErrors: [], pageErrors: [], requestFailures: [], httpErrors: [], criticalHttpErrors: [], finishedAt: null,
 };
@@ -39,6 +44,7 @@ try {
   if (report.logoStatus !== 200) fail(`Logo respondeu HTTP ${report.logoStatus}`);
   const logoText = await logoResponse.text();
   if (!logoText.includes('<svg') || !logoText.includes('CONUTWAY') || !logoText.includes('TEZA')) fail('Logo publicado é inválido.');
+
   const loginResponse = await page.goto(`${BASE}login.html`, { waitUntil: 'networkidle', timeout: 30000 });
   report.loginStatus = loginResponse?.status() ?? null;
   if (report.loginStatus !== 200) fail(`login.html respondeu HTTP ${report.loginStatus}`);
@@ -61,6 +67,7 @@ try {
   const headline = (await page.locator('.copy h1').innerText()).replace(/\s+/g,' ').trim();
   if (!headline.includes('Controle internacional.') || !headline.includes('Decisões mais seguras.')) fail(`Headline inesperada: ${headline}`);
   const accessCard = await page.locator('.card').boundingBox(); if (!accessCard || accessCard.width < 380 || accessCard.height < 450) fail(`Card de acesso fora do padrão: ${JSON.stringify(accessCard)}`);
+
   await page.locator('#username').fill('admin'); await page.locator('#password').fill('senha-incorreta'); await page.locator('#submitBtn').click();
   await page.locator('#loginError.visible').waitFor({ state:'visible', timeout:5000 });
   if (!page.url().includes('login.html')) fail('Credencial inválida saiu da tela de login.'); report.invalidCredentialRejected = true;
@@ -69,7 +76,30 @@ try {
   await page.locator('.app-shell').waitFor({ state:'visible', timeout:15000 });
   if (!((await page.title()).includes('CONUTWAY TEZA BR WORKSPACE'))) fail(`Workspace não carregou após login: ${await page.title()}`);
   report.validCredentialAccepted = true;
+
+  report.workspaceTheme = await page.locator('body').getAttribute('data-workspace-theme');
+  if (report.workspaceTheme !== 'premium-v1') fail(`Tema interno inesperado: ${report.workspaceTheme}`);
+
+  report.workspaceModules = await page.locator('.module-nav button[data-module-target]').evaluateAll((nodes) => nodes.map((node) => node.dataset.moduleTarget));
+  if (JSON.stringify(report.workspaceModules) !== JSON.stringify(EXPECTED_MODULES)) {
+    fail(`Módulos alterados ou ausentes: ${JSON.stringify(report.workspaceModules)}`);
+  }
+
+  const workspaceLogo = page.locator('.brand-block img');
+  await workspaceLogo.waitFor({ state:'visible', timeout:10000 });
+  const workspaceLogoMetrics = await workspaceLogo.evaluate((el) => ({ complete: el.complete, naturalWidth: el.naturalWidth, naturalHeight: el.naturalHeight, src: el.currentSrc }));
+  report.workspaceBrandLogo = workspaceLogoMetrics.src;
+  if (!workspaceLogoMetrics.complete || workspaceLogoMetrics.naturalWidth < 250 || workspaceLogoMetrics.naturalHeight < 80) {
+    fail(`Logo interno não renderizou corretamente: ${JSON.stringify(workspaceLogoMetrics)}`);
+  }
+  if (!workspaceLogoMetrics.src.endsWith('/conutway/assets/conutway-teza-logo-v2.svg')) fail(`Logo interno inesperado: ${workspaceLogoMetrics.src}`);
+
+  const sidebarBox = await page.locator('#workspaceSidebar').boundingBox();
+  report.workspaceSidebarWidth = sidebarBox?.width ?? null;
+  if (!sidebarBox || sidebarBox.width < 265) fail(`Sidebar premium não foi aplicada: ${JSON.stringify(sidebarBox)}`);
+
   await page.screenshot({ path:'pages-workspace-audit.png', fullPage:true });
+
   const more = page.locator('.topbar-more > summary'); if (await more.isVisible()) await more.click();
   const logout = page.locator('#logoutBtn'); await logout.waitFor({ state:'visible', timeout:5000 }); await logout.click();
   await page.waitForURL((url) => url.pathname.endsWith('/conutway/login.html'), { timeout:10000 });
