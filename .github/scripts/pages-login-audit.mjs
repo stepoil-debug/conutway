@@ -2,12 +2,16 @@ import fs from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 const BASE = 'https://stepoil-debug.github.io/conutway/';
+const HERO = `${BASE}assets/conutway-hero-user-v9.webp`;
 const report = {
   startedAt: new Date().toISOString(),
   loginStatus: null,
   buildMarker: null,
+  heroStatus: null,
+  heroBytes: null,
   heroVisible: false,
-  heroUsesEmbeddedImage: false,
+  heroNaturalWidth: null,
+  heroNaturalHeight: null,
   logoVisible: false,
   invalidCredentialRejected: false,
   validCredentialAccepted: false,
@@ -37,7 +41,7 @@ page.on('response', (response) => {
   report.httpErrors.push(item);
   try {
     const url = new URL(response.url());
-    const criticalNames = ['login.html','index.html','app.js','styles.css','storage.js','permissions.js'];
+    const criticalNames = ['login.html','index.html','app.js','styles.css','storage.js','permissions.js','conutway-hero-user-v9.webp'];
     if (url.origin === new URL(BASE).origin && criticalNames.some((name) => url.pathname.endsWith('/' + name))) {
       report.criticalHttpErrors.push(item);
     }
@@ -47,6 +51,16 @@ page.on('response', (response) => {
 const fail = (message) => { throw new Error(message); };
 
 try {
+  const heroResponse = await context.request.get(HERO, { timeout: 30000 });
+  report.heroStatus = heroResponse.status();
+  const heroBody = await heroResponse.body();
+  report.heroBytes = heroBody.length;
+  if (report.heroStatus !== 200) fail(`Hero respondeu HTTP ${report.heroStatus}`);
+  if (heroBody.length !== 49512) fail(`Hero com tamanho inesperado: ${heroBody.length} bytes`);
+  if (heroBody.subarray(0, 4).toString('ascii') !== 'RIFF' || heroBody.subarray(8, 12).toString('ascii') !== 'WEBP') {
+    fail('Hero publicado não é um WebP válido.');
+  }
+
   const loginResponse = await page.goto(`${BASE}login.html`, { waitUntil: 'networkidle', timeout: 30000 });
   report.loginStatus = loginResponse?.status() ?? null;
   if (report.loginStatus !== 200) fail(`login.html respondeu HTTP ${report.loginStatus}`);
@@ -54,18 +68,28 @@ try {
   if (!((await page.title()).includes('CONUTWAY TEZA'))) fail(`Título inesperado no login: ${await page.title()}`);
 
   report.buildMarker = await page.locator('meta[name="conutway-build"]').getAttribute('content');
-  if (report.buildMarker !== 'premium-inline-v8') fail(`Build visual inesperado: ${report.buildMarker}`);
+  if (report.buildMarker !== 'premium-user-hero-v9') fail(`Build visual inesperado: ${report.buildMarker}`);
 
-  const hero = page.locator('.hero-art');
+  const hero = page.locator('.hero-image');
+  await hero.waitFor({ state: 'visible', timeout: 10000 });
   report.heroVisible = await hero.isVisible();
-  if (!report.heroVisible) fail('Arte do hero não ficou visível.');
+  if (!report.heroVisible) fail('Imagem enviada não ficou visível no hero.');
   const heroBox = await hero.boundingBox();
   if (!heroBox || heroBox.width < 650 || heroBox.height < 600) fail(`Hero com dimensões inesperadas: ${JSON.stringify(heroBox)}`);
-  const bg = await hero.evaluate((el) => getComputedStyle(el).backgroundImage);
-  report.heroUsesEmbeddedImage = bg.includes('data:image/webp;base64,');
-  if (!report.heroUsesEmbeddedImage) fail('A imagem enviada pelo usuário não está aplicada ao hero.');
+  const heroMetrics = await hero.evaluate((el) => ({
+    complete: el.complete,
+    naturalWidth: el.naturalWidth,
+    naturalHeight: el.naturalHeight,
+    src: el.currentSrc,
+  }));
+  report.heroNaturalWidth = heroMetrics.naturalWidth;
+  report.heroNaturalHeight = heroMetrics.naturalHeight;
+  if (!heroMetrics.complete || heroMetrics.naturalWidth !== 1000 || heroMetrics.naturalHeight !== 440) {
+    fail(`Imagem do hero não decodificou corretamente: ${JSON.stringify(heroMetrics)}`);
+  }
+  if (!heroMetrics.src.endsWith('/conutway/assets/conutway-hero-user-v9.webp')) fail(`Hero aponta para recurso inesperado: ${heroMetrics.src}`);
 
-  const logo = page.locator('.logo');
+  const logo = page.locator('.logo-card');
   report.logoVisible = await logo.isVisible();
   if (!report.logoVisible) fail('Logo CONUTWAY TEZA não ficou visível.');
   const logoText = (await logo.innerText()).replace(/\s+/g, ' ').trim();
