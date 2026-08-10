@@ -1,4 +1,4 @@
-name: Validar build estático do CONUTWAY
+name: Diagnosticar segmentos do bundle CONUTWAY
 
 on:
   pull_request:
@@ -9,74 +9,40 @@ permissions:
   contents: read
 
 jobs:
-  build-check:
+  diagnose:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-
     steps:
-      - name: Baixar repositório
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Reconstruir bundle estático completo
+      - name: Inspecionar segmentos
         shell: bash
         run: |
           set -euo pipefail
           MAIN_REF='origin/fix/github-pages-static-bundle-v2'
           RECOVERY_REF='origin/fix/pages-bundle-integrity'
           rm -rf /tmp/pages-parts && mkdir -p /tmp/pages-parts
-
-          for n in 000 001 002 003 005; do
-            git show "$MAIN_REF:.pages-bundle/part-$n" > "/tmp/pages-parts/part-$n"
-          done
+          for n in 000 001 002 003 005; do git show "$MAIN_REF:.pages-bundle/part-$n" > "/tmp/pages-parts/part-$n"; done
           git show "$RECOVERY_REF:.pages-bundle/part-004" > /tmp/pages-parts/part-004
-
-          mapfile -t PARTS < <(find /tmp/pages-parts -type f -name 'part-*' | sort -V)
-          echo "Partes recuperadas: ${#PARTS[@]}"
-          printf '%s\n' "${PARTS[@]}"
-          test "${#PARTS[@]}" -eq 6
-
-          cat "${PARTS[@]}" | tr -d '\r\n\t ' > /tmp/site.b64
-          echo "Base64: $(wc -c < /tmp/site.b64) chars"
-          base64 --decode /tmp/site.b64 > /tmp/site.xz
-          echo "XZ: $(stat -c%s /tmp/site.xz) bytes"
-          xz -t /tmp/site.xz
-          xz -dc /tmp/site.xz > /tmp/site.bin
-
-          rm -rf restaurado && mkdir restaurado
-          if tar -tf /tmp/site.bin >/dev/null 2>&1; then
-            tar -xf /tmp/site.bin -C restaurado
-          elif unzip -tq /tmp/site.bin >/dev/null 2>&1; then
-            unzip -q /tmp/site.bin -d restaurado
-          else
-            file /tmp/site.bin || true
-            exit 1
-          fi
-
-          APP_INDEX="$(find restaurado -type f -path '*/app/index.html' | sort | head -n 1 || true)"
-          if [ -z "$APP_INDEX" ]; then APP_INDEX="$(find restaurado -type f -name index.html | sort | head -n 1 || true)"; fi
-          test -n "$APP_INDEX"
-          APP_DIR="$(dirname "$APP_INDEX")"
-          echo "Frontend: $APP_DIR"
-          rm -rf _site && mkdir _site
-          cp -a "$APP_DIR"/. _site/
-          rm -f _site/server.js _site/rfq-server-service.js _site/workspace-rfq-client.js _site/docker-compose.yml _site/start-conutway-br-erp.sh _site/README.md
-          rm -rf _site/tools _site/node_modules _site/data _site/secure _site/uploads _site/exports _site/backup _site/deployment
-          touch _site/.nojekyll
-
-      - name: Preparar modo GitHub Pages
-        run: python3 .github/scripts/prepare_pages.py _site
-
-      - name: Validar site final
-        shell: bash
-        run: |
-          set -euo pipefail
-          for f in index.html 404.html app.js styles.css storage.js permissions.js; do test -s "_site/$f"; done
-          grep -q '<base href="/conutway/">' _site/index.html
-          grep -q 'const serverStorageAllowed = () => false;' _site/app.js
-          node --check _site/app.js
-          node --check _site/storage.js
-          node --check _site/permissions.js
-          echo "Arquivos finais: $(find _site -type f | wc -l)"
-          du -sh _site
+          for f in /tmp/pages-parts/part-*; do
+            clean="/tmp/$(basename "$f").clean"
+            tr -d '\r\n\t ' < "$f" > "$clean"
+            echo "--- $(basename "$f") ---"
+            echo "bytes=$(wc -c < "$clean") equals=$(tr -cd '=' < "$clean" | wc -c)"
+            printf 'head='; head -c 24 "$clean"; echo
+            printf 'tail='; tail -c 24 "$clean"; echo
+            if LC_ALL=C grep -q '[^A-Za-z0-9+/=]' "$clean"; then
+              echo 'invalid_chars=yes'
+              LC_ALL=C grep -o '[^A-Za-z0-9+/=]' "$clean" | head -20 | od -An -t x1
+            else
+              echo 'invalid_chars=no'
+            fi
+          done
+          cat /tmp/part-*.clean > /tmp/all.b64
+          echo "total=$(wc -c < /tmp/all.b64) mod4=$(( $(wc -c < /tmp/all.b64) % 4 ))"
+          set +e
+          base64 --decode /tmp/all.b64 > /tmp/site.xz
+          code=$?
+          set -e
+          echo "decode_exit=$code xz_bytes=$(wc -c < /tmp/site.xz)"
+          exit "$code"
