@@ -10,6 +10,7 @@ import sys
 ENGINE_MARKER = "CONUTWAY QUOTATION COST ENGINE V3"
 AUTO_MARKER = "CONUTWAY QUOTATION COST ENGINE V3 AUTO DEFAULT"
 NCM_SYNC_MARKER = "CONUTWAY QUOTATION NCM TAX SYNC V1"
+NCM_FIX_MARKER = "CONUTWAY QUOTATION NCM TAX SYNC V1 INDEX FIX"
 CSS_MARKER = "CONUTWAY QUOTATION COST ENGINE V3"
 NCM_CSS_MARKER = "CONUTWAY QUOTATION NCM TAX SYNC V1"
 LINK_MARKER = 'data-conutway-cost-engine="v3"'
@@ -40,11 +41,12 @@ def main() -> int:
     engine_source = repo_root / ".github" / "pages" / "quotation-cost-engine-v3.js"
     auto_source = repo_root / ".github" / "pages" / "quotation-cost-engine-v3-autodefault.js"
     ncm_sync_source = repo_root / ".github" / "pages" / "quotation-ncm-tax-sync-v1.js"
+    ncm_fix_source = repo_root / ".github" / "pages" / "quotation-ncm-tax-sync-v1-fix.js"
     css_source = repo_root / ".github" / "pages" / "quotation-cost-engine-v3.css"
     ncm_css_source = repo_root / ".github" / "pages" / "quotation-ncm-tax-sync-v1.css"
     catalog_source = repo_root / ".github" / "pages" / "cost-catalog-v3.json"
 
-    required = [app_path, index_path, fallback_path, engine_source, auto_source, ncm_sync_source, css_source, ncm_css_source, catalog_source]
+    required = [app_path, index_path, fallback_path, engine_source, auto_source, ncm_sync_source, ncm_fix_source, css_source, ncm_css_source, catalog_source]
     for path in required:
         if not path.is_file() or path.stat().st_size == 0:
             raise FileNotFoundError(f"Arquivo obrigatório do motor V3 não encontrado: {path}")
@@ -52,9 +54,10 @@ def main() -> int:
     engine = engine_source.read_text(encoding="utf-8")
     auto = auto_source.read_text(encoding="utf-8")
     ncm_sync = ncm_sync_source.read_text(encoding="utf-8")
+    ncm_fix = ncm_fix_source.read_text(encoding="utf-8")
     css = css_source.read_text(encoding="utf-8")
     ncm_css = ncm_css_source.read_text(encoding="utf-8")
-    if ENGINE_MARKER not in engine or AUTO_MARKER not in auto or NCM_SYNC_MARKER not in ncm_sync or CSS_MARKER not in css or NCM_CSS_MARKER not in ncm_css:
+    if ENGINE_MARKER not in engine or AUTO_MARKER not in auto or NCM_SYNC_MARKER not in ncm_sync or NCM_FIX_MARKER not in ncm_fix or CSS_MARKER not in css or NCM_CSS_MARKER not in ncm_css:
         raise RuntimeError("Marcadores do motor V3/NCM não encontrados nos arquivos-fonte.")
 
     app = app_path.read_text(encoding="utf-8")
@@ -62,7 +65,7 @@ def main() -> int:
     if ENGINE_MARKER not in app:
         if anchor not in app:
             raise RuntimeError("Ponto de injeção initializeApplication não encontrado em app.js.")
-        injected = f"\n\n{engine}\n\n{auto}\n\n{ncm_sync}\n\n"
+        injected = f"\n\n{engine}\n\n{auto}\n\n{ncm_sync}\n\n{ncm_fix}\n\n"
         app = app.replace(anchor, injected + anchor, 1)
         app_path.write_text(app, encoding="utf-8")
     else:
@@ -71,6 +74,8 @@ def main() -> int:
             additions.append(auto)
         if NCM_SYNC_MARKER not in app:
             additions.append(ncm_sync)
+        if NCM_FIX_MARKER not in app:
+            additions.append(ncm_fix)
         if additions:
             if anchor not in app:
                 raise RuntimeError("Ponto de injeção initializeApplication não encontrado para extensões V3.")
@@ -92,6 +97,7 @@ def main() -> int:
         "engine": ENGINE_MARKER in final_app,
         "auto": AUTO_MARKER in final_app,
         "ncm_sync": NCM_SYNC_MARKER in final_app,
+        "ncm_fix": NCM_FIX_MARKER in final_app,
         "catalog": (assets / "cost-catalog-v3.json").is_file(),
         "css": CSS_MARKER in (assets / "quotation-cost-engine-v3.css").read_text(encoding="utf-8"),
         "ncm_css": NCM_CSS_MARKER in (assets / "quotation-ncm-tax-sync-v1.css").read_text(encoding="utf-8"),
