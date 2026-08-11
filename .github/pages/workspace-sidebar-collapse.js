@@ -2,6 +2,7 @@
 (() => {
   const STORAGE_KEY = 'conutway.sidebar.collapsed.v1';
   const DESKTOP_QUERY = '(min-width: 981px)';
+  const OFFICIAL_PROPOSAL_LOGO = 'assets/conutway-teza-logo-v2.svg';
   const SHORTCUTS = {
     dashboard: 'VI',
     internalRfqs: 'RF',
@@ -72,6 +73,28 @@
     const observer = new MutationObserver(() => ensureInternalRfqAccess());
     observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'disabled'] });
     window.__conutwayPagesInternalRfqObserver = observer;
+  };
+
+  /* CONUTWAY PROPOSAL OFFICIAL BRAND V1 */
+  const ensureOfficialProposalLogo = () => {
+    document.querySelectorAll('.quote-header img, .mini-quote-header img').forEach((logo) => {
+      const current = String(logo.getAttribute('src') || '');
+      if (!current.endsWith('conutway-teza-logo-v2.svg')) {
+        logo.setAttribute('src', OFFICIAL_PROPOSAL_LOGO);
+      }
+      if (logo.getAttribute('alt') !== 'CONUTWAY TEZA') {
+        logo.setAttribute('alt', 'CONUTWAY TEZA');
+      }
+    });
+  };
+
+  const observeOfficialProposalLogo = () => {
+    ensureOfficialProposalLogo();
+    const root = document.body;
+    if (!root || window.__conutwayProposalBrandObserver) return;
+    const observer = new MutationObserver(() => ensureOfficialProposalLogo());
+    observer.observe(root, { subtree: true, childList: true });
+    window.__conutwayProposalBrandObserver = observer;
   };
 
   installPagesInternalRfq();
@@ -152,6 +175,8 @@
   };
 
   const init = () => {
+    observeOfficialProposalLogo();
+
     const sidebar = document.getElementById('workspaceSidebar') || document.querySelector('.sidebar');
     if (!sidebar || document.getElementById('sidebarCollapseBtn')) {
       observeInternalRfqAccess();
