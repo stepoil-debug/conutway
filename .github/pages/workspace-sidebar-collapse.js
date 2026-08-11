@@ -35,6 +35,8 @@
 
     const media = window.matchMedia(DESKTOP_QUERY);
     const moduleButtons = [...sidebar.querySelectorAll('.module-nav button[data-module-target]')];
+    const fullLogo = sidebar.querySelector('.brand-logo-full');
+    const emblemLogo = sidebar.querySelector('.brand-logo-emblem');
 
     moduleButtons.forEach((button) => {
       const target = button.dataset.moduleTarget || '';
@@ -62,6 +64,31 @@
     toggle.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.5 6.5 9 12l5.5 5.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     sidebar.appendChild(toggle);
 
+    const applyBrandState = (collapsed) => {
+      if (fullLogo) {
+        fullLogo.style.setProperty('display', collapsed ? 'none' : 'block', 'important');
+        if (!collapsed) {
+          fullLogo.style.removeProperty('width');
+          fullLogo.style.removeProperty('height');
+          fullLogo.style.removeProperty('max-width');
+          fullLogo.style.removeProperty('transform');
+        }
+      }
+      if (emblemLogo) {
+        emblemLogo.style.setProperty('display', collapsed ? 'block' : 'none', 'important');
+        if (collapsed) {
+          emblemLogo.style.setProperty('width', '46px', 'important');
+          emblemLogo.style.setProperty('height', '46px', 'important');
+          emblemLogo.style.setProperty('max-width', '46px', 'important');
+          emblemLogo.style.setProperty('object-fit', 'contain', 'important');
+          emblemLogo.style.setProperty('object-position', 'center', 'important');
+          emblemLogo.style.setProperty('transform', 'none', 'important');
+          emblemLogo.style.setProperty('margin', '7px auto', 'important');
+          emblemLogo.style.setProperty('filter', 'brightness(0) invert(1) opacity(.98) drop-shadow(0 7px 16px rgba(0,0,0,.24))', 'important');
+        }
+      }
+    };
+
     const applyState = (collapsed, persist = false) => {
       const effective = Boolean(collapsed && media.matches);
       document.body.classList.toggle('sidebar-collapsed', effective);
@@ -69,6 +96,7 @@
       toggle.setAttribute('aria-expanded', String(!effective));
       toggle.setAttribute('aria-label', effective ? 'Expandir menu lateral' : 'Recolher menu lateral');
       toggle.setAttribute('title', effective ? 'Expandir menu lateral' : 'Recolher menu lateral');
+      applyBrandState(effective);
       if (persist) savePreference(Boolean(collapsed));
       window.dispatchEvent(new CustomEvent('conutway:sidebar-state', { detail: { collapsed: effective } }));
     };
