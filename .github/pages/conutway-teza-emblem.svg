@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="15 25 105 70" role="img" aria-label="GT">
+  <defs>
+    <linearGradient id="gtGradient" x1="20" y1="25" x2="110" y2="92" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#124f86"/>
+      <stop offset="1" stop-color="#032d58"/>
+    </linearGradient>
+  </defs>
+  <g fill="url(#gtGradient)">
+    <path d="M35 31h54v12H47c-7 0-12 5-12 13s5 13 12 13h27v12H47c-15 0-26-10-26-25s11-25 26-25Z"/>
+    <path d="M61 49h53v12H93v29H79V61H61Z"/>
+  </g>
+</svg>
