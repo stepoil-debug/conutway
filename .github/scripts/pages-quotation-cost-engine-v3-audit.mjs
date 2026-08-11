@@ -7,8 +7,16 @@ const page = await context.newPage();
 
 const fail = (message) => { throw new Error(message); };
 const parseMoney = (text = '') => {
-  const normalized = String(text).replace(/[^0-9,.-]/g, '').replace(/\./g, '').replace(',', '.');
-  const value = Number(normalized);
+  let raw = String(text).replace(/[^0-9,.-]/g, '');
+  const comma = raw.lastIndexOf(',');
+  const dot = raw.lastIndexOf('.');
+  if (comma >= 0 && dot >= 0) {
+    if (comma > dot) raw = raw.replace(/\./g, '').replace(',', '.');
+    else raw = raw.replace(/,/g, '');
+  } else if (comma >= 0) {
+    raw = raw.replace(',', '.');
+  }
+  const value = Number(raw);
   return Number.isFinite(value) ? value : 0;
 };
 
