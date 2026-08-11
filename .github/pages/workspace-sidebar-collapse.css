@@ -138,28 +138,83 @@
     box-shadow: 0 0 16px rgba(57,178,246,.18) !important;
   }
 
+  /* CONUTWAY SIDEBAR COLLAPSED POLISH V2
+     Corrige sobreposição do botão de recolher no emblema GT e
+     mantém a rolagem dos 14 módulos limpa, estreita e somente vertical. */
   body.sidebar-collapsed #workspaceSidebar .brand-block {
-    width: 58px !important;
-    min-height: 66px !important;
-    margin: 0 auto 14px !important;
-    padding: 3px 0 !important;
-    overflow: hidden;
+    width: 64px !important;
+    min-height: 72px !important;
+    height: 72px !important;
+    margin: 0 auto 10px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: visible !important;
   }
 
-  body.sidebar-collapsed #workspaceSidebar .brand-block img {
-    width: 154px !important;
-    max-width: none !important;
-    height: 60px !important;
-    transform: translateX(0);
+  body.sidebar-collapsed #workspaceSidebar .brand-block .brand-logo-emblem {
+    display: block !important;
+    width: 46px !important;
+    height: 40px !important;
+    max-width: 46px !important;
+    max-height: 40px !important;
+    margin: 0 !important;
+    padding: 0 !important;
     object-fit: contain !important;
-    object-position: left center !important;
+    object-position: center !important;
+    transform: translateX(-5px) !important;
+    overflow: visible !important;
+  }
+
+  body.sidebar-collapsed #workspaceSidebar .brand-block img.brand-logo-full {
+    display: none !important;
+  }
+
+  body.sidebar-collapsed .sidebar-collapse-toggle {
+    top: 24px;
+    right: -15px;
   }
 
   body.sidebar-collapsed #workspaceSidebar .module-nav {
     width: 100%;
+    max-height: calc(100vh - 178px) !important;
     padding-left: 8px !important;
-    padding-right: 8px !important;
+    padding-right: 6px !important;
     gap: 8px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(72,164,222,.58) transparent;
+    scrollbar-gutter: stable;
+  }
+
+  body.sidebar-collapsed #workspaceSidebar .module-nav::-webkit-scrollbar {
+    width: 5px;
+    height: 0;
+  }
+
+  body.sidebar-collapsed #workspaceSidebar .module-nav::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  body.sidebar-collapsed #workspaceSidebar .module-nav::-webkit-scrollbar-thumb {
+    min-height: 42px;
+    border: 1px solid rgba(4,30,50,.72);
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(92,190,244,.72), rgba(37,118,168,.72));
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.05), 0 2px 8px rgba(0,0,0,.18);
+  }
+
+  body.sidebar-collapsed #workspaceSidebar .module-nav::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(115,210,255,.86), rgba(47,139,194,.86));
+  }
+
+  body.sidebar-collapsed #workspaceSidebar .module-nav::-webkit-scrollbar-button,
+  body.sidebar-collapsed #workspaceSidebar .module-nav::-webkit-scrollbar-corner {
+    display: none;
+    width: 0;
+    height: 0;
   }
 
   body.sidebar-collapsed #workspaceSidebar .nav-section { gap: 4px !important; }
@@ -175,6 +230,8 @@
   }
 
   body.sidebar-collapsed #workspaceSidebar .nav-section-title::after {
+    content: "";
+    display: block;
     width: 100%;
     height: 1px;
     margin: 6px 0 0;
