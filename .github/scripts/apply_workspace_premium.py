@@ -26,10 +26,11 @@ def main() -> int:
     sidebar_css_path = repo_root / ".github" / "pages" / "workspace-sidebar-collapse.css"
     sidebar_js_path = repo_root / ".github" / "pages" / "workspace-sidebar-collapse.js"
     logo_path = repo_root / ".github" / "pages" / "conutway-teza-logo-v2.svg"
+    emblem_path = repo_root / ".github" / "pages" / "conutway-teza-emblem.svg"
 
     for required in (
         index_path, login_path, style_path, theme_path, logo_override_path,
-        sidebar_css_path, sidebar_js_path, logo_path,
+        sidebar_css_path, sidebar_js_path, logo_path, emblem_path,
     ):
         if not required.is_file() or required.stat().st_size == 0:
             raise FileNotFoundError(f"Arquivo obrigatório do tema não encontrado: {required}")
@@ -37,6 +38,10 @@ def main() -> int:
     logo_source = logo_path.read_text(encoding="utf-8")
     if '<rect width="310" height="112"' in logo_source or 'fill="#eeeade"' in logo_source:
         raise RuntimeError("A logo ainda contém o antigo fundo bege/branco.")
+
+    emblem_source = emblem_path.read_text(encoding="utf-8")
+    if '<svg' not in emblem_source or 'aria-label="GT"' not in emblem_source:
+        raise RuntimeError("O emblema GT não é um SVG válido.")
 
     sidebar_css_source = sidebar_css_path.read_text(encoding="utf-8")
     sidebar_js_source = sidebar_js_path.read_text(encoding="utf-8")
@@ -54,6 +59,7 @@ def main() -> int:
     assets_dir = root / "assets"
     assets_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(logo_path, assets_dir / "conutway-teza-logo-v2.svg")
+    shutil.copy2(emblem_path, assets_dir / "conutway-teza-emblem.svg")
     shutil.copy2(sidebar_css_path, assets_dir / "workspace-sidebar-collapse.css")
     shutil.copy2(sidebar_js_path, assets_dir / "workspace-sidebar-collapse.js")
 
@@ -77,7 +83,20 @@ def main() -> int:
     else:
         attrs = 'src="assets/conutway-teza-logo-v2.svg" ' + attrs
 
-    html = html[: match.start()] + match.group(1) + attrs + match.group(3) + html[match.end() :]
+    if re.search(r'\bclass=["\'][^"\']*["\']', attrs, flags=re.IGNORECASE):
+        attrs = re.sub(
+            r'\bclass=["\'][^"\']*["\']',
+            'class="brand-logo-full"',
+            attrs,
+            count=1,
+            flags=re.IGNORECASE,
+        )
+    else:
+        attrs = 'class="brand-logo-full" ' + attrs
+
+    full_logo = match.group(1) + attrs + match.group(3)
+    emblem_logo = '<img class="brand-logo-emblem" src="assets/conutway-teza-emblem.svg" alt="GT" aria-hidden="true">'
+    html = html[: match.start()] + full_logo + emblem_logo + html[match.end() :]
 
     if THEME_ATTR not in html:
         html = re.sub(
@@ -125,9 +144,6 @@ def main() -> int:
         css = css.rstrip() + "\n\n" + logo_css.strip() + "\n"
     style_path.write_text(css, encoding="utf-8")
 
-    # A logo transparente em azul-marinho perde contraste sobre a fotografia China/Brasil.
-    # No login, mantemos o mesmo SVG, mas envolvido por um glass card escuro e com a
-    # marca renderizada em branco. A sidebar interna continua usando sua regra própria.
     login = login_path.read_text(encoding="utf-8")
     if 'class="brand-logo-shell"' not in login:
         login_logo_pattern = re.compile(
@@ -188,6 +204,9 @@ def main() -> int:
     final_login = login_path.read_text(encoding="utf-8")
     checks = {
         "logo": "assets/conutway-teza-logo-v2.svg" in final_html,
+        "emblem": "assets/conutway-teza-emblem.svg" in final_html,
+        "logo-full-class": 'class="brand-logo-full"' in final_html,
+        "logo-emblem-class": 'class="brand-logo-emblem"' in final_html,
         "theme-attr": THEME_ATTR in final_html,
         "theme-css": THEME_MARKER in final_css,
         "logo-transparent-css": LOGO_MARKER in final_css,
@@ -196,6 +215,7 @@ def main() -> int:
         "sidebar-css": "assets/workspace-sidebar-collapse.css" in final_html,
         "sidebar-js": "assets/workspace-sidebar-collapse.js" in final_html,
         "sidebar-assets": (assets_dir / "workspace-sidebar-collapse.css").is_file() and (assets_dir / "workspace-sidebar-collapse.js").is_file(),
+        "emblem-asset": (assets_dir / "conutway-teza-emblem.svg").is_file(),
         "modules": final_html.count("data-module-target=") == EXPECTED_MODULE_TARGETS,
     }
     failed = [name for name, ok in checks.items() if not ok]
@@ -207,9 +227,11 @@ def main() -> int:
         f"modules={EXPECTED_MODULE_TARGETS}",
         f"css_bytes={style_path.stat().st_size}",
         f"logo_bytes={(assets_dir / 'conutway-teza-logo-v2.svg').stat().st_size}",
+        f"emblem_bytes={(assets_dir / 'conutway-teza-emblem.svg').stat().st_size}",
         "logo_transparent=1",
         "login_logo_contrast=1",
         "sidebar_collapsible=1",
+        "sidebar_emblem_only=1",
     )
     return 0
 
