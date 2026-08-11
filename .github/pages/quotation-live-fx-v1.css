@@ -1,0 +1,68 @@
+/* CONUTWAY QUOTATION LIVE FX V1 */
+
+#projects .live-fx-control {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 310px;
+  padding: 10px 12px;
+  border: 1px solid rgba(15, 23, 42, .12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .82);
+}
+
+#projects .live-fx-values {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+#projects .live-fx-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #64748b;
+}
+
+#projects .live-fx-values strong {
+  font-size: 18px;
+  line-height: 1.1;
+  color: #0f172a;
+}
+
+#projects .live-fx-values small {
+  display: block;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#projects .live-fx-source {
+  max-width: 300px;
+}
+
+#projects .live-fx-refresh {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  #projects .live-fx-control {
+    width: 100%;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 680px) {
+  #projects .live-fx-control {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  #projects .live-fx-refresh {
+    width: 100%;
+  }
+}
