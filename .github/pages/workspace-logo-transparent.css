@@ -1,0 +1,21 @@
+/* CONUTWAY LOGO TRANSPARENT OVERRIDES */
+@media screen {
+  .brand-block {
+    min-height: 78px !important;
+    margin: 0 3px 15px !important;
+    padding: 4px 10px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .brand-block img {
+    width: 220px !important;
+    max-width: 100% !important;
+    height: 72px !important;
+    object-fit: contain !important;
+    object-position: left center !important;
+    filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .18)) !important;
+  }
+}
