@@ -62,19 +62,34 @@ function conutwayLiveFxApplySnapshot(project, fx) {
   if (!project || !fx || !(fx.rate > 0)) return false;
 
   const updateSnapshot = (snapshot) => {
-    if (!snapshot || typeof snapshot !== 'object') return;
+    if (!snapshot || typeof snapshot !== 'object') return false;
     snapshot.fxRate = fx.rate;
+    return true;
   };
-  updateSnapshot(project.formulaSnapshot);
-  updateSnapshot(project.costProfileSnapshot);
 
-  // Projetos V3 normalmente já possuem snapshot. Se algum legado não possuir,
-  // cria um snapshot local a partir do perfil ativo sem alterar o catálogo global.
-  if (!project.formulaSnapshot && !project.costProfileSnapshot) {
-    const profile = conutwayV3ProfileForProject(project) || conutwayV3OfficialProfile?.() || null;
+  let updatedAnySnapshot = false;
+  updatedAnySnapshot = updateSnapshot(project.formulaSnapshot) || updatedAnySnapshot;
+  updatedAnySnapshot = updateSnapshot(project.costProfileSnapshot) || updatedAnySnapshot;
+
+  // O ERP também mantém snapshots da fórmula dentro de cada item. Todos devem
+  // receber a mesma taxa para que CIF, tributos e custo posto sejam recalculados
+  // de forma consistente, sem parte do orçamento permanecer com o dólar antigo.
+  (project.items || []).forEach((item) => {
+    updatedAnySnapshot = updateSnapshot(item.formulaSnapshot) || updatedAnySnapshot;
+    updatedAnySnapshot = updateSnapshot(item.costProfileSnapshot) || updatedAnySnapshot;
+  });
+
+  // Projetos legados podem não ter snapshots ainda. Criamos um snapshot local
+  // a partir do perfil ativo, sem alterar o catálogo oficial/global.
+  if (!updatedAnySnapshot) {
+    const profile = conutwayV3ProfileForProject(project) || (typeof conutwayV3OfficialProfile === 'function' ? conutwayV3OfficialProfile() : null);
     if (profile) {
       project.formulaSnapshot = conutwayV3Clone(profile);
       project.formulaSnapshot.fxRate = fx.rate;
+      (project.items || []).forEach((item) => {
+        item.formulaSnapshot = conutwayV3Clone(project.formulaSnapshot);
+      });
+      updatedAnySnapshot = true;
     }
   }
 
@@ -89,7 +104,7 @@ function conutwayLiveFxApplySnapshot(project, fx) {
   if (state.quoteCostProfileDraft && typeof state.quoteCostProfileDraft === 'object') {
     state.quoteCostProfileDraft.fxRate = fx.rate;
   }
-  return true;
+  return updatedAnySnapshot;
 }
 
 async function conutwayLiveFxPersistProjects() {
@@ -130,6 +145,8 @@ function conutwayLiveFxDecoratePricingBar() {
     </div>
     <button type="button" class="secondary live-fx-refresh" data-live-fx-refresh>Atualizar câmbio agora</button>
   `;
+  const refreshButton = control.querySelector('[data-live-fx-refresh]');
+  refreshButton?.addEventListener('click', () => conutwayLiveFxRefresh(refreshButton));
   bar.appendChild(control);
 }
 
@@ -141,13 +158,11 @@ async function conutwayLiveFxRefresh(button) {
   button.textContent = 'Buscando PTAX...';
   try {
     const fx = await conutwayLiveFxFetchBcbLatest();
-    conutwayLiveFxApplySnapshot(project, fx);
+    if (!conutwayLiveFxApplySnapshot(project, fx)) {
+      throw new Error('Nenhum snapshot de precificação disponível para aplicar o câmbio.');
+    }
     await conutwayLiveFxPersistProjects();
     if (typeof resetQuotationCostProfileDraft === 'function') resetQuotationCostProfileDraft();
-    // Reaplica o valor ao draft recriado, para o formulário mostrar a mesma taxa do snapshot.
-    if (state.quoteCostProfileDraft && typeof state.quoteCostProfileDraft === 'object') {
-      state.quoteCostProfileDraft.fxRate = fx.rate;
-    }
     renderQuotationCostProfileBar();
     renderItemsEditor();
     renderQuote();
@@ -171,9 +186,3 @@ renderQuotationCostProfileBar = function conutwayLiveFxRenderQuotationCostProfil
   conutwayLiveFxDecoratePricingBar();
   return result;
 };
-
-document.addEventListener('click', (event) => {
-  const button = event.target?.closest?.('[data-live-fx-refresh]');
-  if (!button) return;
-  conutwayLiveFxRefresh(button);
-});
