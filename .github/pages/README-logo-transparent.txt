@@ -1,0 +1,1 @@
+Logo CONUTWAY TEZA transparente aplicada em 2026-08-11. O fundo bege/branco foi removido do SVG e a interface interna usa acabamento sem cartão de fundo.
