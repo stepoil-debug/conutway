@@ -9,6 +9,7 @@ import sys
 THEME_MARKER = "CONUTWAY WORKSPACE PREMIUM V1"
 LOGO_MARKER = "CONUTWAY LOGO TRANSPARENT OVERRIDES"
 LOGIN_LOGO_MARKER = "CONUTWAY LOGIN LOGO CONTRAST V1"
+SIDEBAR_MARKER = "CONUTWAY SIDEBAR COLLAPSIBLE PREMIUM V1"
 THEME_ATTR = 'data-workspace-theme="premium-v1"'
 EXPECTED_MODULE_TARGETS = 14
 
@@ -22,15 +23,25 @@ def main() -> int:
     style_path = root / "styles.css"
     theme_path = repo_root / ".github" / "pages" / "workspace-premium.css"
     logo_override_path = repo_root / ".github" / "pages" / "workspace-logo-transparent.css"
+    sidebar_css_path = repo_root / ".github" / "pages" / "workspace-sidebar-collapse.css"
+    sidebar_js_path = repo_root / ".github" / "pages" / "workspace-sidebar-collapse.js"
     logo_path = repo_root / ".github" / "pages" / "conutway-teza-logo-v2.svg"
 
-    for required in (index_path, login_path, style_path, theme_path, logo_override_path, logo_path):
+    for required in (
+        index_path, login_path, style_path, theme_path, logo_override_path,
+        sidebar_css_path, sidebar_js_path, logo_path,
+    ):
         if not required.is_file() or required.stat().st_size == 0:
             raise FileNotFoundError(f"Arquivo obrigatório do tema não encontrado: {required}")
 
     logo_source = logo_path.read_text(encoding="utf-8")
     if '<rect width="310" height="112"' in logo_source or 'fill="#eeeade"' in logo_source:
         raise RuntimeError("A logo ainda contém o antigo fundo bege/branco.")
+
+    sidebar_css_source = sidebar_css_path.read_text(encoding="utf-8")
+    sidebar_js_source = sidebar_js_path.read_text(encoding="utf-8")
+    if SIDEBAR_MARKER not in sidebar_css_source or SIDEBAR_MARKER not in sidebar_js_source:
+        raise RuntimeError("Assets do menu recolhível não possuem o marcador esperado.")
 
     html = index_path.read_text(encoding="utf-8")
     module_count_before = html.count("data-module-target=")
@@ -43,6 +54,8 @@ def main() -> int:
     assets_dir = root / "assets"
     assets_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(logo_path, assets_dir / "conutway-teza-logo-v2.svg")
+    shutil.copy2(sidebar_css_path, assets_dir / "workspace-sidebar-collapse.css")
+    shutil.copy2(sidebar_js_path, assets_dir / "workspace-sidebar-collapse.js")
 
     brand_pattern = re.compile(
         r'(<div\s+class=["\']brand-block["\'][^>]*>\s*<img\s+)([^>]*)(/?>)',
@@ -70,6 +83,26 @@ def main() -> int:
         html = re.sub(
             r'<body(\s[^>]*)?>',
             lambda m: '<body' + (m.group(1) or '') + f' {THEME_ATTR}>',
+            html,
+            count=1,
+            flags=re.IGNORECASE,
+        )
+
+    sidebar_link = '<link rel="stylesheet" href="assets/workspace-sidebar-collapse.css" data-conutway-sidebar="premium-v1">'
+    if 'workspace-sidebar-collapse.css' not in html:
+        html = re.sub(
+            r'</head>',
+            '  ' + sidebar_link + '\n</head>',
+            html,
+            count=1,
+            flags=re.IGNORECASE,
+        )
+
+    sidebar_script = '<script defer src="assets/workspace-sidebar-collapse.js" data-conutway-sidebar="premium-v1"></script>'
+    if 'workspace-sidebar-collapse.js' not in html:
+        html = re.sub(
+            r'</body>',
+            '  ' + sidebar_script + '\n</body>',
             html,
             count=1,
             flags=re.IGNORECASE,
@@ -160,6 +193,9 @@ def main() -> int:
         "logo-transparent-css": LOGO_MARKER in final_css,
         "login-logo-contrast": LOGIN_LOGO_MARKER in final_login,
         "login-logo-shell": 'class="brand-logo-shell"' in final_login,
+        "sidebar-css": "assets/workspace-sidebar-collapse.css" in final_html,
+        "sidebar-js": "assets/workspace-sidebar-collapse.js" in final_html,
+        "sidebar-assets": (assets_dir / "workspace-sidebar-collapse.css").is_file() and (assets_dir / "workspace-sidebar-collapse.js").is_file(),
         "modules": final_html.count("data-module-target=") == EXPECTED_MODULE_TARGETS,
     }
     failed = [name for name, ok in checks.items() if not ok]
@@ -173,6 +209,7 @@ def main() -> int:
         f"logo_bytes={(assets_dir / 'conutway-teza-logo-v2.svg').stat().st_size}",
         "logo_transparent=1",
         "login_logo_contrast=1",
+        "sidebar_collapsible=1",
     )
     return 0
 

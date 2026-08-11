@@ -64,12 +64,19 @@ jobs:
           for f in index.html login.html 404.html app.js styles.css storage.js permissions.js; do test -s "_site/$f"; done
           test -s _site/assets/conutway-brazil-china-hero.webp
           test -s _site/assets/conutway-teza-logo-v2.svg
+          test -s _site/assets/workspace-sidebar-collapse.css
+          test -s _site/assets/workspace-sidebar-collapse.js
           grep -q '<base href="/conutway/">' _site/index.html
           grep -q 'id="pagesAuthGuard"' _site/index.html
           grep -q 'id="pagesLogoutHandler"' _site/index.html
           grep -q 'data-workspace-theme="premium-v1"' _site/index.html
           grep -q 'CONUTWAY WORKSPACE PREMIUM V1' _site/styles.css
           grep -q 'assets/conutway-teza-logo-v2.svg' _site/index.html
+          grep -q 'assets/workspace-sidebar-collapse.css' _site/index.html
+          grep -q 'assets/workspace-sidebar-collapse.js' _site/index.html
+          grep -q 'CONUTWAY SIDEBAR COLLAPSIBLE PREMIUM V1' _site/assets/workspace-sidebar-collapse.css
+          grep -q 'CONUTWAY SIDEBAR COLLAPSIBLE PREMIUM V1' _site/assets/workspace-sidebar-collapse.js
+          grep -q 'sidebarCollapseBtn' _site/assets/workspace-sidebar-collapse.js
           test "$(grep -o 'data-module-target=' _site/index.html | wc -l)" -eq 14
           grep -q 'id="loginForm"' _site/login.html
           grep -q 'target-v2-backup-hero' _site/login.html
@@ -86,6 +93,7 @@ jobs:
           node --check _site/app.js
           node --check _site/storage.js
           node --check _site/permissions.js
+          node --check _site/assets/workspace-sidebar-collapse.js
           echo "files=$(find _site -type f | wc -l)"
           du -sh _site
 
@@ -125,7 +133,12 @@ jobs:
             pages-login-audit.json
             pages-login-audit.png
             pages-workspace-audit.png
+            pages-workspace-collapsed-audit.png
+            pages-workspace-projects-audit.png
+            pages-workspace-po-audit.png
             _site/index.html
             _site/styles.css
+            _site/assets/workspace-sidebar-collapse.css
+            _site/assets/workspace-sidebar-collapse.js
           if-no-files-found: warn
           retention-days: 7
