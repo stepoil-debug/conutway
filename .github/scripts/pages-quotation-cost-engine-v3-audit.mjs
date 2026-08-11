@@ -2,6 +2,7 @@ import { chromium } from 'playwright';
 
 const BASE = process.env.CONUTWAY_BASE_URL || 'https://stepoil-debug.github.io/conutway/';
 const QA_NCM = '99000001';
+const QA_FX = 5.1234;
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 1600, height: 1100 } });
 const page = await context.newPage();
@@ -18,6 +19,21 @@ const parseMoney = (text = '') => {
 };
 
 try {
+  // Torna o teste determinístico sem depender da cotação real do dia.
+  await page.route('https://olinda.bcb.gov.br/**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        value: [{
+          cotacaoCompra: QA_FX - 0.0006,
+          cotacaoVenda: QA_FX,
+          dataHoraCotacao: '2026-08-11T13:10:00.000-03:00',
+        }],
+      }),
+    });
+  });
+
   await page.goto(`${BASE}login.html`, { waitUntil: 'networkidle', timeout: 30000 });
   await page.locator('#username').fill('admin');
   await page.locator('#password').fill('admin');
@@ -27,6 +43,7 @@ try {
 
   if (!(await page.locator('link[data-conutway-cost-engine="v3"]').count())) fail('CSS do motor V3 ausente.');
   if (!(await page.locator('link[data-conutway-ncm-tax-sync="v1"]').count())) fail('CSS da integração NCM ausente.');
+  if (!(await page.locator('link[data-conutway-live-fx="v1"]').count())) fail('CSS da atualização de câmbio ausente.');
 
   // 1) Cadastro fiscal do produto. O NCM QA é isolado do catálogo real para
   // testar o caso inequívoco; conflitos reais permanecem como pendência.
@@ -83,6 +100,9 @@ try {
   await profile.waitFor({ state: 'visible', timeout: 10000 });
   if (await profile.inputValue() !== 'cost-rj-rio-brasil-2026-v3') fail('Perfil oficial não foi aplicado automaticamente.');
 
+  const liveFxButton = page.locator('[data-live-fx-refresh]');
+  await liveFxButton.waitFor({ state: 'visible', timeout: 10000 });
+
   const ct = page.locator('[data-item-field="ctCode"]').first();
   await ct.fill('CT-9901');
   await ct.dispatchEvent('change');
@@ -132,7 +152,36 @@ try {
     fail(`Tributos não entraram no cálculo: ${JSON.stringify(flow.totals)}`);
   }
 
-  // 3) Uma regra fiscal inequívoca do mesmo NCM pode ser reaproveitada sem
+  // 3) Atualização do câmbio sob demanda deve usar a venda PTAX, preservar o
+  // buffer comercial e recalcular o orçamento imediatamente.
+  await liveFxButton.click();
+  await page.waitForFunction((expected) => {
+    const project = currentProject();
+    return Math.abs(Number(project.liveFx?.rate || 0) - expected) < 0.000001;
+  }, QA_FX, { timeout: 10000 });
+
+  const liveFx = await page.evaluate(() => {
+    const project = currentProject();
+    const formula = conutwayV3Formula(project);
+    const breakdown = conutwayV3AllBreakdown(project);
+    return {
+      rate: Number(formula.fxRate || 0),
+      effective: conutwayV3EffectiveFx(formula),
+      sourceCode: project.liveFx?.sourceCode,
+      source: project.liveFx?.source,
+      quotedAt: project.liveFx?.quotedAt,
+      cifBrl: breakdown.projectCifBrl,
+    };
+  });
+  if (Math.abs(liveFx.rate - QA_FX) > 0.000001) fail(`PTAX não foi aplicada ao snapshot: ${JSON.stringify(liveFx)}`);
+  if (liveFx.sourceCode !== 'bcb-ptax-usd-brl-sale') fail(`Fonte PTAX não foi auditada: ${JSON.stringify(liveFx)}`);
+  const expectedEffective = QA_FX * 1.03;
+  if (Math.abs(liveFx.effective - expectedEffective) > 0.000001) fail(`Buffer cambial não foi preservado: ${JSON.stringify(liveFx)}`);
+  if (Math.abs(liveFx.cifBrl - expectedEffective * 1000) > 0.05) fail(`CIF não foi recalculado com PTAX: ${JSON.stringify(liveFx)}`);
+  const liveFxSourceText = await page.locator('[data-live-fx-source]').textContent();
+  if (!String(liveFxSourceText).includes('Banco Central')) fail(`Fonte visual do câmbio incorreta: ${liveFxSourceText}`);
+
+  // 4) Uma regra fiscal inequívoca do mesmo NCM pode ser reaproveitada sem
   // transformar o segundo item no produto que originou a regra.
   await page.locator('#addItemBtn').click();
   await page.locator('[data-item-field="descriptionPt"]').nth(1).fill('Outro produto com o mesmo NCM');
@@ -156,7 +205,17 @@ try {
   }
 
   await page.screenshot({ path: 'pages-workspace-quotation-cost-engine-v3.png', fullPage: true });
-  console.log(JSON.stringify({ ok: true, flow: 'Produto -> NCM -> tributos -> custo posto', qaNcm: QA_NCM, savedProduct, landedUnitCostBrl: landed, suggestedSaleUnitBrl: suggested, taxFlow: flow, secondIdentity }, null, 2));
+  console.log(JSON.stringify({
+    ok: true,
+    flow: 'Produto -> NCM -> tributos -> PTAX -> custo posto',
+    qaNcm: QA_NCM,
+    savedProduct,
+    landedUnitCostBrl: landed,
+    suggestedSaleUnitBrl: suggested,
+    taxFlow: flow,
+    liveFx,
+    secondIdentity,
+  }, null, 2));
 } catch (error) {
   await page.screenshot({ path: 'pages-workspace-quotation-cost-engine-v3-error.png', fullPage: true }).catch(() => {});
   console.error(error?.stack || String(error));
