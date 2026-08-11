@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 3,
+  "updatedAt": "2026-08-11T17:00:00Z",
+  "profiles": [
+    {
+      "id": "cost-rj-rio-brasil-2026-v3",
+      "name": "RJ / Rio Brasil Terminal 2026",
+      "version": 3,
+      "status": "Ativo",
+      "effectiveDate": "2026-04-20",
+      "sourceNote": "Catálogo oficial CONUTWAY. Tarifas portuárias: Rio Brasil Terminal 2026. Tributos devem ser validados por NCM, operação e UF antes do fechamento.",
+      "sourceStatus": "official",
+      "officialCatalog": true,
+      "formulaMode": "landed-plus-margin",
+      "formulaVersion": 3,
+      "fxRate": 5.5,
+      "fxBufferRate": 3,
+      "importCostEnabled": false,
+      "importCostRate": 0,
+      "clearanceCostEnabled": false,
+      "clearanceCostRate": 0,
+      "localCostEnabled": false,
+      "localCostRate": 0,
+      "otherCostEnabled": false,
+      "otherCostRate": 0,
+      "salesTaxEnabled": true,
+      "salesTaxRate": 12,
+      "profitEnabled": true,
+      "profitRate": 20,
+      "detailedCostEngine": {
+        "enabled": true,
+        "version": 3,
+        "terminal": "rio-brasil-2026-fcl",
+        "containerSize": "20",
+        "daysAtTerminal": 5,
+        "oceanFreightUsd": 0,
+        "afrmmEnabled": true,
+        "afrmmRate": 8,
+        "siscomexBrl": 0,
+        "customsBrokerBrl": 0,
+        "localLogisticsBrl": 0,
+        "demurrageDetentionBrl": 0,
+        "otherBrl": 0,
+        "terminalServiceTaxRate": 0,
+        "includeTransitionTaxes": false,
+        "cbsTestRate": 0.9,
+        "ibsTestRate": 0.1,
+        "defaultItemTaxes": {
+          "iiRate": 0,
+          "ipiRate": 0,
+          "pisImportRate": 2.1,
+          "cofinsImportRate": 9.65,
+          "icmsRate": 0,
+          "icmsExtraBaseBrl": 0
+        },
+        "services": {
+          "inspection": true,
+          "handling": true,
+          "weighing": true,
+          "co2": false
+        },
+        "conditions": {
+          "oog": false,
+          "sanitary": false,
+          "imo": false,
+          "destuffedFcl": false,
+          "over40": false
+        },
+        "terminalCatalog": {
+          "name": "Rio Brasil Terminal",
+          "effectiveDate": "2026-04-20",
+          "procedureRate": 0.42,
+          "procedureMin20": 2071.48,
+          "procedureMin40": 2816.98,
+          "storagePeriods": [
+            {"rate": 0.80, "min20": 1640.16, "min40": 2460.20},
+            {"rate": 1.46, "min20": 1804.15, "min40": 2706.21},
+            {"rate": 1.88, "min20": 1984.57, "min40": 2976.83}
+          ],
+          "inspectionBrl": 590.89,
+          "handlingBrl": 775.16,
+          "weighingBrl": 169.75,
+          "co2Brl": 17.65,
+          "surcharges": {
+            "oog": 200,
+            "sanitary": 100,
+            "imo": 100,
+            "destuffedFcl": 200,
+            "over40": 100
+          }
+        },
+        "itemTaxes": {},
+        "audit": {
+          "source": "CONUTWAY official catalog",
+          "pricingPolicy": "No cost or tax may be silently omitted. Zero/unconfigured critical parameters must remain visible as pending validation.",
+          "updatedAt": "2026-08-11T17:00:00Z"
+        }
+      }
+    }
+  ]
+}
