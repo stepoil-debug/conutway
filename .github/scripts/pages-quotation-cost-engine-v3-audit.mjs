@@ -20,10 +20,16 @@ const parseMoney = (text = '') => {
 
 try {
   // Torna o teste determinístico sem depender da cotação real do dia.
+  // Como a chamada parte do app para o domínio do BCB, o mock precisa reproduzir
+  // também o cabeçalho CORS que permite a leitura da resposta pelo navegador.
   await page.route('https://olinda.bcb.gov.br/**', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
+      headers: {
+        'access-control-allow-origin': '*',
+        'cache-control': 'no-store',
+      },
       body: JSON.stringify({
         value: [{
           cotacaoCompra: QA_FX - 0.0006,
