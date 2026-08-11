@@ -7,6 +7,7 @@ import shutil
 import sys
 
 THEME_MARKER = "CONUTWAY WORKSPACE PREMIUM V1"
+LOGO_MARKER = "CONUTWAY LOGO TRANSPARENT OVERRIDES"
 THEME_ATTR = 'data-workspace-theme="premium-v1"'
 EXPECTED_MODULE_TARGETS = 14
 
@@ -18,11 +19,16 @@ def main() -> int:
     index_path = root / "index.html"
     style_path = root / "styles.css"
     theme_path = repo_root / ".github" / "pages" / "workspace-premium.css"
+    logo_override_path = repo_root / ".github" / "pages" / "workspace-logo-transparent.css"
     logo_path = repo_root / ".github" / "pages" / "conutway-teza-logo-v2.svg"
 
-    for required in (index_path, style_path, theme_path, logo_path):
+    for required in (index_path, style_path, theme_path, logo_override_path, logo_path):
         if not required.is_file() or required.stat().st_size == 0:
             raise FileNotFoundError(f"Arquivo obrigatório do tema não encontrado: {required}")
+
+    logo_source = logo_path.read_text(encoding="utf-8")
+    if '<rect width="310" height="112"' in logo_source or 'fill="#eeeade"' in logo_source:
+        raise RuntimeError("A logo ainda contém o antigo fundo bege/branco.")
 
     html = index_path.read_text(encoding="utf-8")
     module_count_before = html.count("data-module-target=")
@@ -77,8 +83,12 @@ def main() -> int:
 
     css = style_path.read_text(encoding="utf-8")
     premium_css = theme_path.read_text(encoding="utf-8")
+    logo_css = logo_override_path.read_text(encoding="utf-8")
     if THEME_MARKER not in css:
-        style_path.write_text(css.rstrip() + "\n\n" + premium_css.strip() + "\n", encoding="utf-8")
+        css = css.rstrip() + "\n\n" + premium_css.strip() + "\n"
+    if LOGO_MARKER not in css:
+        css = css.rstrip() + "\n\n" + logo_css.strip() + "\n"
+    style_path.write_text(css, encoding="utf-8")
 
     final_html = index_path.read_text(encoding="utf-8")
     final_css = style_path.read_text(encoding="utf-8")
@@ -86,6 +96,7 @@ def main() -> int:
         "logo": "assets/conutway-teza-logo-v2.svg" in final_html,
         "theme-attr": THEME_ATTR in final_html,
         "theme-css": THEME_MARKER in final_css,
+        "logo-transparent-css": LOGO_MARKER in final_css,
         "modules": final_html.count("data-module-target=") == EXPECTED_MODULE_TARGETS,
     }
     failed = [name for name, ok in checks.items() if not ok]
@@ -97,6 +108,7 @@ def main() -> int:
         f"modules={EXPECTED_MODULE_TARGETS}",
         f"css_bytes={style_path.stat().st_size}",
         f"logo_bytes={(assets_dir / 'conutway-teza-logo-v2.svg').stat().st_size}",
+        "logo_transparent=1",
     )
     return 0
 
