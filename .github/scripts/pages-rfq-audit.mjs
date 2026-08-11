@@ -54,8 +54,9 @@ try {
   await buttonAfterReload.click();
   await page.locator('[data-rfq-view="overview"]').waitFor({ state: 'visible', timeout: 10000 });
 
-  const persisted = page.locator('#internalRfqWorkspace').getByText(subject, { exact: false });
-  if (!(await persisted.count())) fail('Rascunho do RFQ não persistiu após recarregar.');
+  const persisted = page.locator(`#internalRfqWorkspace [data-rfq-open="${rfqNumber}"]`);
+  const persistedByText = page.locator('#internalRfqWorkspace').getByText(rfqNumber, { exact: false });
+  if (!(await persisted.count()) && !(await persistedByText.count())) fail(`Rascunho ${rfqNumber} não persistiu após recarregar.`);
 
   await page.screenshot({ path: 'pages-workspace-rfq-audit.png', fullPage: false });
 
