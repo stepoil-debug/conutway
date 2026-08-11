@@ -34,6 +34,18 @@ def main() -> int:
     app = app_path.read_text(encoding="utf-8")
     app = replace_once(
         app,
+        'const DB_VERSION = 7;',
+        'const DB_VERSION = 8;',
+        "versão do IndexedDB para documentos locais",
+    )
+    app = replace_once(
+        app,
+        'const STORES = ["customers", "suppliers", "products", "purchaseOrders", "projects", "contracts", "projectAccounts", "internalRfqs", "rfqSyncState", "inventory", "sellers", "users", "optionGroups", "costProfiles"];',
+        'const STORES = ["customers", "suppliers", "products", "purchaseOrders", "projects", "contracts", "projectAccounts", "internalRfqs", "rfqSyncState", "inventory", "sellers", "users", "optionGroups", "costProfiles", "documents"];',
+        "store local de documentos",
+    )
+    app = replace_once(
+        app,
         'const serverStorageAllowed = () => ["http:", "https:"].includes(window.location.protocol);',
         "const serverStorageAllowed = () => false;",
         "modo de armazenamento",
@@ -53,7 +65,7 @@ def main() -> int:
     app = replace_once(
         app,
         'function canCurrentUserAccessModule(moduleName = "") {\n  if (window.BrErpPermissions?.canAccessModule) return window.BrErpPermissions.canAccessModule(currentAuthUser(), moduleName);',
-        'function canCurrentUserAccessModule(moduleName = "") {\n  if (["documents", "internalRfqs"].includes(moduleName)) return false;\n  if (window.BrErpPermissions?.canAccessModule) return window.BrErpPermissions.canAccessModule(currentAuthUser(), moduleName);',
+        'function canCurrentUserAccessModule(moduleName = "") {\n  if (moduleName === "internalRfqs") return false;\n  if (window.BrErpPermissions?.canAccessModule) return window.BrErpPermissions.canAccessModule(currentAuthUser(), moduleName);',
         "módulos compatíveis",
     )
     app = replace_once(
@@ -89,6 +101,214 @@ def main() -> int:
     ]
     seed_block = "\n".join(seed_lines)
     app = replace_once(app, seed_anchor, seed_block, "dados iniciais")
+
+    # Documentos e Manuais no Pages: o backend /api/documents não existe no GitHub Pages.
+    # Mantemos a mesma interface e operações, mas persistimos os arquivos no IndexedDB
+    # do navegador. Isso torna o módulo funcional no ambiente demonstrativo sem servidor.
+    documents_pages_adapter = r'''
+
+/* CONUTWAY PAGES DOCUMENTS LOCAL V1 */
+const pagesDocumentObjectUrls = new Map();
+
+function pagesDocumentId(prefix = "doc") {
+  if (typeof crypto.randomUUID === "function") return `${prefix}-${crypto.randomUUID().replaceAll("-", "")}`;
+  return `${prefix}-${Array.from(crypto.getRandomValues(new Uint8Array(16)), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function pagesBase64ToBlob(base64Value = "", mimeType = "application/octet-stream") {
+  const binary = atob(String(base64Value || ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return new Blob([bytes], { type: mimeType || "application/octet-stream" });
+}
+
+function pagesClearDocumentObjectUrls(documentId = "") {
+  for (const [key, url] of pagesDocumentObjectUrls.entries()) {
+    if (!documentId || key.startsWith(`${documentId}:`)) {
+      try { URL.revokeObjectURL(url); } catch (_) {}
+      pagesDocumentObjectUrls.delete(key);
+    }
+  }
+}
+
+async function pagesReadDocuments() {
+  const records = await api.all("documents");
+  return Array.isArray(records) ? records.map((record) => normalizeDocumentRecord(record)) : [];
+}
+
+async function pagesWriteDocuments(records = []) {
+  const prepared = (Array.isArray(records) ? records : []).map((record) => ({
+    ...record,
+    id: String(record.id || record.documentId || pagesDocumentId("doc")),
+    documentId: String(record.documentId || record.id || ""),
+  })).map((record) => ({ ...record, documentId: record.documentId || record.id }));
+  await api.replace("documents", prepared);
+  return prepared;
+}
+
+function pagesFilterDocuments(records = [], filters = {}) {
+  const query = String(filters.query || "").trim().toLocaleLowerCase();
+  const category = String(filters.category || "");
+  const ctCode = String(filters.ctCode || "").trim().toLocaleLowerCase();
+  return records.filter((record) => {
+    if (!filters.includeArchived && record.archived) return false;
+    if (category && record.category !== category) return false;
+    if (ctCode && !String(record.ctCode || "").toLocaleLowerCase().includes(ctCode)) return false;
+    if (query) {
+      const haystack = [record.name, record.ctCode, record.category, record.product, record.note]
+        .map((value) => String(value || "").toLocaleLowerCase()).join(" ");
+      if (!haystack.includes(query)) return false;
+    }
+    return true;
+  }).sort((left, right) => String(right.updatedAt || "").localeCompare(String(left.updatedAt || "")));
+}
+
+const serverDocumentVersionUrl = documentVersionUrl;
+documentVersionUrl = function pagesDocumentVersionUrl(record, action) {
+  if (serverStorageAllowed()) return serverDocumentVersionUrl(record, action);
+  const version = record?.latestVersion;
+  if (!record?.documentId || !version?.versionId || !version?.contentBase64) return "";
+  const key = `${record.documentId}:${version.versionId}`;
+  if (!pagesDocumentObjectUrls.has(key)) {
+    const blob = pagesBase64ToBlob(version.contentBase64, version.mimeType || "application/octet-stream");
+    pagesDocumentObjectUrls.set(key, URL.createObjectURL(blob));
+  }
+  return pagesDocumentObjectUrls.get(key) || "";
+};
+
+const serverLoadDocuments = loadDocuments;
+loadDocuments = async function pagesLoadDocuments() {
+  if (serverStorageAllowed()) return serverLoadDocuments();
+  state.documentsLoading = true;
+  state.documentError = "";
+  renderDocuments();
+  try {
+    const records = await pagesReadDocuments();
+    state.documents = pagesFilterDocuments(records, state.documentFilters);
+    if (!state.documents.some((record) => record.documentId === state.currentDocumentId)) {
+      state.currentDocumentId = state.documents[0]?.documentId || "";
+    }
+    return state.documents;
+  } catch (error) {
+    console.error("documents_local_load_failed", error);
+    state.documents = [];
+    state.currentDocumentId = "";
+    state.documentError = t("Não foi possível carregar os documentos.");
+    return [];
+  } finally {
+    state.documentsLoading = false;
+    renderDocuments();
+    applyLanguage();
+  }
+};
+
+const serverUploadDocumentChunks = uploadDocumentChunks;
+uploadDocumentChunks = async function pagesUploadDocumentChunks(file, metadata = {}, documentId = "") {
+  if (serverStorageAllowed()) return serverUploadDocumentChunks(file, metadata, documentId);
+  validateDocumentUploadFile(file);
+  const records = await pagesReadDocuments();
+  const now = new Date().toISOString();
+  const sha256 = await documentFileSha256(file);
+  const contentBase64 = await documentChunkBase64(file);
+  const versionId = pagesDocumentId("ver");
+  const latestVersion = {
+    versionId,
+    fileName: String(file.name || metadata.name || "documento"),
+    mimeType: String(file.type || "application/octet-stream"),
+    size: Number(file.size) || 0,
+    fileSize: Number(file.size) || 0,
+    sha256,
+    createdAt: now,
+    updatedAt: now,
+    contentBase64,
+  };
+
+  if (documentId) {
+    const index = records.findIndex((record) => record.documentId === documentId);
+    if (index < 0) throw new Error("Document not found");
+    pagesClearDocumentObjectUrls(documentId);
+    const updated = {
+      ...records[index],
+      id: records[index].id || records[index].documentId,
+      documentId: records[index].documentId,
+      updatedAt: now,
+      versionCount: Math.max(0, Number(records[index].versionCount) || 0) + 1,
+      latestVersion,
+    };
+    records[index] = updated;
+    await pagesWriteDocuments(records);
+    return latestVersion;
+  }
+
+  const newDocumentId = pagesDocumentId("doc");
+  const created = {
+    id: newDocumentId,
+    documentId: newDocumentId,
+    name: String(metadata.name || file.name || "Documento"),
+    category: String(metadata.category || "other"),
+    ctCode: String(metadata.ctCode || ""),
+    product: "",
+    note: "",
+    archived: false,
+    createdAt: now,
+    updatedAt: now,
+    versionCount: 1,
+    latestVersion,
+  };
+  records.push(created);
+  await pagesWriteDocuments(records);
+  return created;
+};
+
+const serverRenameDocument = renameDocument;
+renameDocument = async function pagesRenameDocument() {
+  if (serverStorageAllowed()) return serverRenameDocument();
+  const selected = currentDocument();
+  if (!selected) return false;
+  const name = window.prompt(t("Novo nome"), selected.name)?.trim();
+  if (!name || name === selected.name) return false;
+  const records = await pagesReadDocuments();
+  const index = records.findIndex((record) => record.documentId === selected.documentId);
+  if (index < 0) return false;
+  records[index] = { ...records[index], name, updatedAt: new Date().toISOString() };
+  await pagesWriteDocuments(records);
+  await loadDocuments();
+  return true;
+};
+
+const serverToggleDocumentArchive = toggleDocumentArchive;
+toggleDocumentArchive = async function pagesToggleDocumentArchive(archived) {
+  if (serverStorageAllowed()) return serverToggleDocumentArchive(archived);
+  const selected = currentDocument();
+  if (!selected || !window.confirm(t(archived ? "Arquivar este documento?" : "Restaurar este documento?"))) return false;
+  const records = await pagesReadDocuments();
+  const index = records.findIndex((record) => record.documentId === selected.documentId);
+  if (index < 0) return false;
+  records[index] = { ...records[index], archived: Boolean(archived), updatedAt: new Date().toISOString() };
+  await pagesWriteDocuments(records);
+  await loadDocuments();
+  return true;
+};
+
+const serverDeleteDocument = deleteDocument;
+deleteDocument = async function pagesDeleteDocument() {
+  if (serverStorageAllowed()) return serverDeleteDocument();
+  const selected = currentDocument();
+  if (!selected || !window.confirm(t("Excluir este documento permanentemente?"))) return false;
+  const records = await pagesReadDocuments();
+  pagesClearDocumentObjectUrls(selected.documentId);
+  await pagesWriteDocuments(records.filter((record) => record.documentId !== selected.documentId));
+  state.currentDocumentId = "";
+  await loadDocuments();
+  return true;
+};
+'''
+    initialize_anchor = "async function initializeApplication() {"
+    if "CONUTWAY PAGES DOCUMENTS LOCAL V1" not in app:
+        if initialize_anchor not in app:
+            raise RuntimeError("Ponto de injeção do adaptador local de documentos não encontrado.")
+        app = app.replace(initialize_anchor, documents_pages_adapter + "\n\n" + initialize_anchor, 1)
+
     app_path.write_text(app, encoding="utf-8")
 
     html = index_path.read_text(encoding="utf-8")
@@ -166,9 +386,6 @@ def main() -> int:
     index_path.write_text(html, encoding="utf-8")
 
     login = login_template_path.read_text(encoding="utf-8")
-    # O layout premium usa uma chave própria para reaproveitar a sessão no login.
-    # O workspace, porém, valida conutway.auth.v1. Gravamos as duas estruturas
-    # no mesmo submit para evitar o loop login -> workspace -> login.
     old_success = "sessionStorage.setItem(KEY,JSON.stringify({username:'admin',at:Date.now()}));location.href='./'"
     new_success = "const now=Date.now();sessionStorage.setItem(KEY,JSON.stringify({username:'admin',at:now}));sessionStorage.setItem('conutway.auth.v1',JSON.stringify({user:'admin',issuedAt:now}));location.href='./'"
     if old_success in login:
@@ -203,10 +420,6 @@ def main() -> int:
     if ".pages-mode-banner {" not in style_text:
         style_path.write_text(style_text + css, encoding="utf-8")
 
-    # Os arquivos gráficos originais não sobreviveram íntegros ao pacote legado.
-    # Criamos uma marca vetorial local para evitar imagens quebradas e mantemos
-    # PNGs válidos nos caminhos históricos, garantindo compatibilidade com caches
-    # e referências antigas que ainda possam solicitar esses URLs.
     assets_dir = root / "assets"
     assets_dir.mkdir(parents=True, exist_ok=True)
     logo_svg = """<svg xmlns="http://www.w3.org/2000/svg" width="520" height="112" viewBox="0 0 520 112" role="img" aria-label="CONUTWAY TEZA">
@@ -221,8 +434,6 @@ def main() -> int:
 </svg>"""
     (assets_dir / "conutway-teza-logo-crop.svg").write_text(logo_svg, encoding="utf-8")
 
-    # PNG transparente 1x1 válido: os caminhos históricos continuam respondendo 200,
-    # enquanto as referências visuais do frontend são direcionadas ao SVG acima.
     png_1x1 = base64.b64decode(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl9ZVQAAAAASUVORK5CYII="
     )
