@@ -1,0 +1,509 @@
+/* CONUTWAY QUOTATION LAYOUT V2
+   Camada visual isolada para Cotações / Precificação.
+   Não altera cálculos, dados, eventos ou regras de negócio. */
+
+@media screen {
+  /* Topbar: permite que o título ceda espaço sem empurrar ações para fora da tela. */
+  .topbar-title {
+    min-width: 190px !important;
+    flex: 0 1 auto !important;
+  }
+
+  .topbar .actions {
+    min-width: 0 !important;
+    flex-wrap: wrap !important;
+    justify-content: flex-end !important;
+  }
+
+  .topbar-primary-actions {
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  /* Área principal de Cotações. */
+  #projects.module-page {
+    width: min(100%, 1720px);
+    padding-inline: clamp(14px, 1.55vw, 26px);
+    overflow-x: clip;
+  }
+
+  #projects .project-detail {
+    width: 100%;
+    min-width: 0;
+    gap: 12px;
+  }
+
+  #projects .project-workspace-tabs {
+    width: 100%;
+    min-width: 0;
+    margin: 0;
+  }
+
+  #projects .project-grid,
+  #projects .editor-panel,
+  #projects [data-project-panel],
+  #projects .form-section,
+  #projects .pricing-rate-group,
+  #projects .project-pricing-panel {
+    min-width: 0;
+  }
+
+  /* Cabeçalho da cotação: título, contexto e ações sem compressão. */
+  #projects .erp-workspace-header {
+    grid-template-columns: minmax(165px, .62fr) minmax(0, 2.65fr) auto;
+    gap: 10px;
+    padding: 11px 13px;
+    align-items: stretch;
+  }
+
+  #projects .erp-workspace-title {
+    align-content: center;
+    min-width: 0;
+    padding-right: 4px;
+  }
+
+  #projects .erp-context-metrics {
+    grid-template-columns: minmax(210px, 1.7fr) repeat(4, minmax(92px, 1fr));
+    gap: 8px;
+    min-width: 0;
+    align-items: stretch;
+  }
+
+  #projects .erp-context-metrics > div {
+    min-width: 0;
+    min-height: 54px;
+    padding: 8px 10px;
+    display: grid;
+    align-content: center;
+  }
+
+  #projects .erp-context-metrics dt {
+    line-height: 1.15;
+  }
+
+  #projects .erp-context-metrics dd {
+    margin-top: 5px;
+    line-height: 1.2;
+  }
+
+  #projects .erp-workspace-actions {
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: nowrap;
+    gap: 7px;
+  }
+
+  #projects .erp-workspace-actions button {
+    min-height: 40px;
+    white-space: nowrap;
+  }
+
+  /* Painel editor: respiro uniforme. */
+  #projects .editor-panel.panel {
+    padding: 15px;
+    overflow: hidden;
+    border-radius: 15px;
+  }
+
+  #projects [data-project-panel="pricing"]:not([hidden]) {
+    display: grid;
+    gap: 12px;
+  }
+
+  #projects [data-project-panel="pricing"] > .section-title {
+    margin: 0;
+  }
+
+  #projects [data-project-panel="pricing"] .section-heading {
+    min-width: 0;
+  }
+
+  #projects [data-project-panel="pricing"] .section-heading small {
+    margin-left: 8px;
+    white-space: normal;
+  }
+
+  /* Câmbio e perfil: campos fluidos e alturas iguais. */
+  #projects .pricing-exchange-group {
+    margin: 0;
+    padding: 14px;
+    border-radius: 13px;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbfd 100%);
+  }
+
+  #projects .pricing-exchange-group .pricing-rate-group-header {
+    margin-bottom: 10px;
+  }
+
+  #projects .estimated-cost-profile-bar {
+    grid-template-columns:
+      minmax(280px, 2.6fr)
+      minmax(125px, .86fr)
+      minmax(145px, 1fr)
+      minmax(125px, .86fr)
+      minmax(150px, auto);
+    gap: 10px;
+    align-items: end;
+    margin: 0;
+    padding: 10px;
+    border-radius: 10px;
+    background: #f6fafc;
+  }
+
+  #projects .estimated-cost-profile-bar label {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  #projects .estimated-cost-profile-bar input,
+  #projects .estimated-cost-profile-bar select,
+  #projects .estimated-cost-profile-bar button {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    min-height: 38px;
+    height: 38px;
+    margin: 0;
+    border-radius: 8px;
+    font-size: 12px;
+    box-sizing: border-box;
+  }
+
+  #projects .estimated-cost-profile-bar button {
+    padding-inline: 13px;
+  }
+
+  /* Grupos de custos quando um perfil está aplicado. */
+  #projects .project-pricing-panel {
+    margin: 0;
+  }
+
+  #projects .project-pricing-head {
+    margin: 0 0 9px;
+    padding-inline: 2px;
+  }
+
+  #projects .pricing-rate-groups {
+    grid-template-columns: minmax(0, 1.75fr) minmax(320px, .9fr);
+    gap: 12px;
+  }
+
+  #projects .pricing-rate-group {
+    padding: 13px;
+    border-radius: 12px;
+  }
+
+  #projects .project-cost-grid {
+    gap: 9px;
+  }
+
+  #projects .project-cost-control {
+    min-height: 78px;
+    padding: 9px;
+    border-radius: 8px;
+  }
+
+  /* Itens: card único, cabeçalho alinhado e tabela com scroll somente dentro do card. */
+  #projects .form-section-items {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    border-radius: 13px;
+    background: #ffffff;
+  }
+
+  #projects .pricing-items-header {
+    min-height: 52px;
+    padding: 9px 13px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-bottom: 1px solid #dfe8ee;
+  }
+
+  #projects .pricing-items-header > span {
+    font-size: 14px;
+    font-weight: 780;
+  }
+
+  #projects .pricing-items-header #addItemBtn {
+    min-height: 36px;
+    padding-inline: 13px;
+    white-space: nowrap;
+  }
+
+  #projects .items-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    scrollbar-gutter: stable;
+  }
+
+  #projects .quotation-items-editor {
+    width: 100%;
+    min-width: 1440px;
+    table-layout: fixed;
+  }
+
+  #projects .quotation-items-editor thead th {
+    height: 46px;
+    padding: 8px 7px;
+    vertical-align: middle;
+    line-height: 1.15;
+    white-space: normal;
+  }
+
+  #projects .quotation-items-editor tbody td {
+    padding: 8px 7px;
+    vertical-align: top;
+  }
+
+  #projects .quotation-items-editor th:nth-child(1) { width: 104px; }
+  #projects .quotation-items-editor th:nth-child(2) { width: 270px; }
+  #projects .quotation-items-editor th:nth-child(3) { width: 96px; }
+  #projects .quotation-items-editor th:nth-child(4) { width: 76px; }
+  #projects .quotation-items-editor th:nth-child(5) { width: 76px; }
+  #projects .quotation-items-editor th:nth-child(6) { width: 180px; }
+  #projects .quotation-items-editor th:nth-child(7) { width: 125px; }
+  #projects .quotation-items-editor th:nth-child(8) { width: 145px; }
+  #projects .quotation-items-editor th:nth-child(9) { width: 135px; }
+  #projects .quotation-items-editor th:nth-child(10) { width: 118px; }
+  #projects .quotation-items-editor th:nth-child(11) { width: 64px; }
+  #projects .quotation-items-editor th:nth-child(12) { width: 54px; }
+
+  #projects .quotation-items-editor input:not([type="checkbox"]),
+  #projects .quotation-items-editor select,
+  #projects .quotation-items-editor textarea {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
+  }
+
+  #projects .quotation-items-editor input:not([type="checkbox"]),
+  #projects .quotation-items-editor select {
+    min-height: 36px;
+    height: 36px;
+  }
+
+  #projects .quotation-items-editor textarea {
+    min-height: 52px;
+    line-height: 1.35;
+    resize: vertical;
+  }
+
+  #projects .quotation-items-editor .cif-input-stack {
+    grid-template-columns: 62px minmax(0, 1fr);
+    gap: 6px;
+    align-items: start;
+  }
+
+  #projects .quotation-items-editor .cif-currency-select {
+    width: 62px !important;
+    min-width: 62px !important;
+    height: 36px;
+  }
+
+  #projects .quotation-items-editor .readonly-total {
+    min-width: 0;
+    padding: 10px 7px;
+    line-height: 20px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  #projects .quotation-items-editor .final-sale-cell {
+    gap: 5px;
+  }
+
+  #projects .quotation-items-editor .final-sale-meta {
+    gap: 6px;
+    min-height: 15px;
+    font-size: 9.5px;
+  }
+
+  #projects .quotation-items-editor .appendix-toggle-cell {
+    padding-top: 15px;
+    text-align: center;
+  }
+
+  #projects .quotation-items-editor .remove-item {
+    display: inline-grid;
+    place-items: center;
+    min-width: 32px;
+    width: 32px;
+    min-height: 32px;
+    height: 32px;
+    margin-top: 1px;
+  }
+
+  /* Resumo financeiro: uma faixa limpa abaixo da tabela. */
+  #projects #projectPricingSummary {
+    grid-template-columns: repeat(5, minmax(150px, 1fr));
+    gap: 8px;
+    margin: 0;
+    padding: 10px 12px 12px;
+    border: 0;
+    border-top: 1px solid #e2eaf0;
+    border-radius: 0;
+    background: #f8fbfd;
+  }
+
+  #projects .project-pricing-summary-card {
+    min-width: 0;
+    min-height: 64px;
+    padding: 9px 10px;
+    border-radius: 9px;
+    background: #ffffff;
+  }
+
+  #projects .project-pricing-summary-card strong {
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* A partir daqui o cabeçalho passa a duas linhas antes de começar a espremer os cards. */
+  @media (max-width: 1500px) {
+    #projects .erp-workspace-header {
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+    }
+
+    #projects .erp-context-metrics {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      grid-template-columns: minmax(210px, 1.65fr) repeat(4, minmax(100px, 1fr));
+    }
+
+    #projects .erp-workspace-actions {
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    #projects .pricing-rate-groups {
+      grid-template-columns: minmax(0, 1.55fr) minmax(290px, .95fr);
+    }
+  }
+
+  @media (max-width: 1280px) {
+    .topbar-title {
+      min-width: 150px !important;
+    }
+
+    #projects .estimated-cost-profile-bar {
+      grid-template-columns: minmax(240px, 2fr) repeat(3, minmax(125px, 1fr));
+    }
+
+    #projects .estimated-cost-profile-bar #applyCostProfileBtn {
+      grid-column: 1 / -1;
+      width: min(220px, 100%);
+      justify-self: end;
+    }
+
+    #projects .pricing-rate-groups {
+      grid-template-columns: 1fr;
+    }
+
+    #projects #projectPricingSummary {
+      grid-template-columns: repeat(3, minmax(150px, 1fr));
+    }
+  }
+
+  @media (max-width: 980px) {
+    .topbar .actions {
+      flex-wrap: wrap !important;
+    }
+
+    #projects.module-page {
+      padding-inline: 12px;
+    }
+
+    #projects .project-workspace-tabs {
+      display: flex;
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+
+    #projects .project-workspace-tabs button {
+      flex: 0 0 auto;
+      min-width: 132px;
+    }
+
+    #projects .erp-workspace-header {
+      grid-template-columns: 1fr;
+      align-items: stretch;
+    }
+
+    #projects .erp-workspace-actions,
+    #projects .erp-context-metrics {
+      grid-column: 1;
+      grid-row: auto;
+    }
+
+    #projects .erp-workspace-actions {
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+
+    #projects .erp-context-metrics {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #projects .erp-context-metrics > div:first-child {
+      grid-column: 1 / -1;
+    }
+
+    #projects .estimated-cost-profile-bar {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #projects .estimated-cost-profile-bar .profile-select-field {
+      grid-column: 1 / -1;
+    }
+
+    #projects .estimated-cost-profile-bar #applyCostProfileBtn {
+      grid-column: 1 / -1;
+      width: 100%;
+    }
+
+    #projects #projectPricingSummary {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 620px) {
+    #projects .editor-panel.panel {
+      padding: 10px;
+    }
+
+    #projects .erp-context-metrics,
+    #projects .estimated-cost-profile-bar,
+    #projects #projectPricingSummary {
+      grid-template-columns: 1fr;
+    }
+
+    #projects .erp-context-metrics > div:first-child,
+    #projects .estimated-cost-profile-bar .profile-select-field,
+    #projects .estimated-cost-profile-bar #applyCostProfileBtn {
+      grid-column: auto;
+    }
+
+    #projects .pricing-items-header {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    #projects .pricing-items-header #addItemBtn {
+      width: 100%;
+    }
+  }
+}
