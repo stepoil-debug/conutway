@@ -110,7 +110,7 @@ jobs:
           npm install --no-save playwright
           npx playwright install --with-deps chromium
 
-      - name: Auditar login, módulos e RFQ no build local
+      - name: Auditar login, módulos, Documentos e RFQ no build local
         shell: bash
         run: |
           set -euo pipefail
@@ -128,13 +128,14 @@ jobs:
           cp .github/scripts/pages-login-audit.mjs .github/scripts/local-pages-login-audit.mjs
           sed -i 's#https://stepoil-debug.github.io/conutway/#http://127.0.0.1:4173/conutway/#g' .github/scripts/local-pages-login-audit.mjs
           node .github/scripts/local-pages-login-audit.mjs
+          CONUTWAY_BASE=http://127.0.0.1:4173/conutway/ node .github/scripts/documents-pages-audit.mjs
           CONUTWAY_BASE_URL=http://127.0.0.1:4173/conutway/ node .github/scripts/pages-rfq-audit.mjs
 
       - name: Guardar evidências da auditoria
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: conutway-pr-login-audit
+          name: conutway-pr-functional-audit
           path: |
             pages-login-audit.json
             pages-login-audit.png
@@ -143,6 +144,7 @@ jobs:
             pages-workspace-projects-audit.png
             pages-workspace-po-audit.png
             pages-workspace-documents-audit.png
+            pages-workspace-documents-functional-audit.png
             pages-workspace-rfq-audit.png
             _site/index.html
             _site/app.js
