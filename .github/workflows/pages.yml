@@ -82,6 +82,24 @@ jobs:
       - name: Aplicar interface interna premium
         run: python3 .github/scripts/apply_workspace_premium.py _site
 
+      - name: Aplicar favicon oficial GT
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp .github/pages/conutway-favicon-gt.svg _site/assets/conutway-favicon-gt.svg
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          favicon = '<link rel="icon" type="image/svg+xml" href="assets/conutway-favicon-gt.svg" data-conutway-favicon="gt-v1">'
+          for name in ('index.html', 'login.html', '404.html'):
+              path = Path('_site') / name
+              text = path.read_text(encoding='utf-8')
+              text = re.sub(r'<link\b[^>]*rel=["\'](?:shortcut\s+)?icon["\'][^>]*>\s*', '', text, flags=re.IGNORECASE)
+              text = re.sub(r'</head>', f'  {favicon}\n</head>', text, count=1, flags=re.IGNORECASE)
+              path.write_text(text, encoding='utf-8')
+          PY
+
       - name: Validar site final
         shell: bash
         run: |
@@ -89,12 +107,16 @@ jobs:
           for f in index.html login.html 404.html app.js styles.css storage.js permissions.js; do test -s "_site/$f"; done
           test -s _site/assets/conutway-brazil-china-hero.webp
           test -s _site/assets/conutway-teza-logo-v2.svg
+          test -s _site/assets/conutway-favicon-gt.svg
           grep -q '<base href="/conutway/">' _site/index.html
           grep -q 'id="pagesAuthGuard"' _site/index.html
           grep -q 'id="pagesLogoutHandler"' _site/index.html
           grep -q 'data-workspace-theme="premium-v1"' _site/index.html
           grep -q 'CONUTWAY WORKSPACE PREMIUM V1' _site/styles.css
           grep -q 'assets/conutway-teza-logo-v2.svg' _site/index.html
+          grep -q 'data-conutway-favicon="gt-v1"' _site/index.html
+          grep -q 'data-conutway-favicon="gt-v1"' _site/login.html
+          grep -q 'data-conutway-favicon="gt-v1"' _site/404.html
           test "$(grep -o 'data-module-target=' _site/index.html | wc -l)" -eq 14
           grep -q 'id="loginForm"' _site/login.html
           grep -q 'target-v2-backup-hero' _site/login.html
