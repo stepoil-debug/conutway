@@ -16,7 +16,10 @@ const report = {
   startedAt: new Date().toISOString(), loginStatus: null, buildMarker: null,
   heroStatus: null, heroBytes: null, heroVisible: false, heroBox: null,
   heroNaturalWidth: null, heroNaturalHeight: null, logoStatus: null, logoVisible: false,
-  workspaceTheme: null, workspaceModules: [], workspaceBrandLogo: null, workspaceSidebarWidth: null,
+  workspaceTheme: null, workspaceModules: [], workspaceBrandLogo: null,
+  workspaceSidebarWidth: null, workspaceSidebarExpandedWidth: null, workspaceSidebarCollapsedWidth: null,
+  workspaceExpandedX: null, workspaceCollapsedX: null, sidebarToggleVisible: false,
+  sidebarPersistenceWorked: false, sidebarCollapsedNavigationWorked: false,
   moduleNavigationTested: [],
   invalidCredentialRejected: false, validCredentialAccepted: false, logoutWorked: false,
   consoleErrors: [], pageErrors: [], requestFailures: [], httpErrors: [], criticalHttpErrors: [], finishedAt: null,
@@ -32,7 +35,11 @@ page.on('response', (response) => {
   const item = `${response.status()} ${response.url()}`; report.httpErrors.push(item);
   try {
     const url = new URL(response.url());
-    const criticalNames = ['login.html','index.html','app.js','styles.css','storage.js','permissions.js','conutway-brazil-china-hero.webp','conutway-teza-logo-v2.svg'];
+    const criticalNames = [
+      'login.html','index.html','app.js','styles.css','storage.js','permissions.js',
+      'conutway-brazil-china-hero.webp','conutway-teza-logo-v2.svg',
+      'workspace-sidebar-collapse.css','workspace-sidebar-collapse.js'
+    ];
     if (url.origin === new URL(BASE).origin && criticalNames.some((name) => url.pathname.endsWith('/' + name))) report.criticalHttpErrors.push(item);
   } catch (_) {}
 });
@@ -95,11 +102,59 @@ try {
   if (!workspaceLogoMetrics.complete || workspaceLogoMetrics.naturalWidth < 250 || workspaceLogoMetrics.naturalHeight < 80) fail(`Logo interno não renderizou corretamente: ${JSON.stringify(workspaceLogoMetrics)}`);
   if (!workspaceLogoMetrics.src.endsWith('/conutway/assets/conutway-teza-logo-v2.svg')) fail(`Logo interno inesperado: ${workspaceLogoMetrics.src}`);
 
-  const sidebarBox = await page.locator('#workspaceSidebar').boundingBox();
-  report.workspaceSidebarWidth = sidebarBox?.width ?? null;
-  if (!sidebarBox || sidebarBox.width < 265) fail(`Sidebar premium não foi aplicada: ${JSON.stringify(sidebarBox)}`);
+  const sidebar = page.locator('#workspaceSidebar');
+  const workspace = page.locator('.workspace');
+  const toggle = page.locator('#sidebarCollapseBtn');
+  await toggle.waitFor({ state:'visible', timeout:10000 });
+  report.sidebarToggleVisible = await toggle.isVisible();
+  if (!report.sidebarToggleVisible) fail('Botão de recolher menu não ficou visível.');
+
+  const expandedSidebar = await sidebar.boundingBox();
+  const expandedWorkspace = await workspace.boundingBox();
+  report.workspaceSidebarWidth = expandedSidebar?.width ?? null;
+  report.workspaceSidebarExpandedWidth = expandedSidebar?.width ?? null;
+  report.workspaceExpandedX = expandedWorkspace?.x ?? null;
+  if (!expandedSidebar || expandedSidebar.width < 265 || expandedSidebar.width > 290) fail(`Sidebar aberta fora do padrão: ${JSON.stringify(expandedSidebar)}`);
+  if (!expandedWorkspace) fail('Área principal não foi localizada com menu aberto.');
 
   await page.screenshot({ path:'pages-workspace-audit.png', fullPage:true });
+
+  await toggle.click();
+  await page.locator('body.sidebar-collapsed').waitFor({ state:'attached', timeout:5000 });
+  await page.waitForTimeout(350);
+  const collapsedSidebar = await sidebar.boundingBox();
+  const collapsedWorkspace = await workspace.boundingBox();
+  report.workspaceSidebarCollapsedWidth = collapsedSidebar?.width ?? null;
+  report.workspaceCollapsedX = collapsedWorkspace?.x ?? null;
+  if (!collapsedSidebar || collapsedSidebar.width < 72 || collapsedSidebar.width > 96) fail(`Sidebar recolhida fora do padrão: ${JSON.stringify(collapsedSidebar)}`);
+  if (!collapsedWorkspace) fail('Área principal não foi localizada com menu recolhido.');
+  if ((expandedSidebar.width - collapsedSidebar.width) < 170) fail(`Ganho de largura insuficiente ao recolher menu: aberto=${expandedSidebar.width}, recolhido=${collapsedSidebar.width}`);
+  if ((expandedWorkspace.x - collapsedWorkspace.x) < 160) fail(`Conteúdo não ocupou o espaço liberado: x aberto=${expandedWorkspace.x}, x recolhido=${collapsedWorkspace.x}`);
+  if ((await toggle.getAttribute('aria-expanded')) !== 'false') fail('Estado ARIA do menu recolhido está incorreto.');
+
+  const collapsedProjectsButton = page.locator('.module-nav button[data-module-target="projects"]');
+  await collapsedProjectsButton.click();
+  await page.locator('#projects').waitFor({ state:'visible', timeout:10000 });
+  report.sidebarCollapsedNavigationWorked = await page.locator('#projects').isVisible();
+  if (!report.sidebarCollapsedNavigationWorked) fail('Navegação não funcionou com o menu recolhido.');
+  await page.screenshot({ path:'pages-workspace-collapsed-audit.png', fullPage:true });
+
+  const savedState = await page.evaluate(() => localStorage.getItem('conutway.sidebar.collapsed.v1'));
+  if (savedState !== '1') fail(`Preferência do menu não foi salva: ${savedState}`);
+  await page.reload({ waitUntil:'networkidle', timeout:30000 });
+  await page.locator('.app-shell').waitFor({ state:'visible', timeout:15000 });
+  await page.locator('body.sidebar-collapsed').waitFor({ state:'attached', timeout:5000 });
+  await page.waitForTimeout(300);
+  const persistedSidebar = await page.locator('#workspaceSidebar').boundingBox();
+  report.sidebarPersistenceWorked = Boolean(persistedSidebar && persistedSidebar.width >= 72 && persistedSidebar.width <= 96);
+  if (!report.sidebarPersistenceWorked) fail(`Estado recolhido não persistiu após recarregar: ${JSON.stringify(persistedSidebar)}`);
+
+  const toggleAfterReload = page.locator('#sidebarCollapseBtn');
+  await toggleAfterReload.click();
+  await page.waitForFunction(() => !document.body.classList.contains('sidebar-collapsed'));
+  await page.waitForTimeout(300);
+  const reopenedSidebar = await page.locator('#workspaceSidebar').boundingBox();
+  if (!reopenedSidebar || reopenedSidebar.width < 265) fail(`Menu não reabriu corretamente: ${JSON.stringify(reopenedSidebar)}`);
 
   for (const target of BUSINESS_MODULES_TO_TEST) {
     const button = page.locator(`.module-nav button[data-module-target="${target}"]`);
