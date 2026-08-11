@@ -11,9 +11,11 @@ on:
       - '.github/scripts/recover_pages.py'
       - '.github/scripts/prepare_pages.py'
       - '.github/scripts/apply_workspace_premium.py'
+      - '.github/scripts/apply_quotation_layout.py'
       - '.github/scripts/pages-login-audit.mjs'
       - '.github/scripts/documents-pages-audit.mjs'
       - '.github/scripts/pages-rfq-audit.mjs'
+      - '.github/scripts/pages-quotation-layout-audit.mjs'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -82,6 +84,9 @@ jobs:
       - name: Aplicar interface interna premium
         run: python3 .github/scripts/apply_workspace_premium.py _site
 
+      - name: Aplicar layout responsivo de Cotações
+        run: python3 .github/scripts/apply_quotation_layout.py _site
+
       - name: Aplicar favicon oficial GT
         shell: bash
         run: |
@@ -108,12 +113,15 @@ jobs:
           test -s _site/assets/conutway-brazil-china-hero.webp
           test -s _site/assets/conutway-teza-logo-v2.svg
           test -s _site/assets/conutway-favicon-gt.svg
+          test -s _site/assets/quotation-layout-v2.css
           grep -q '<base href="/conutway/">' _site/index.html
           grep -q 'id="pagesAuthGuard"' _site/index.html
           grep -q 'id="pagesLogoutHandler"' _site/index.html
           grep -q 'data-workspace-theme="premium-v1"' _site/index.html
           grep -q 'CONUTWAY WORKSPACE PREMIUM V1' _site/styles.css
           grep -q 'assets/conutway-teza-logo-v2.svg' _site/index.html
+          grep -q 'data-conutway-quotation-layout="v2"' _site/index.html
+          grep -q 'CONUTWAY QUOTATION LAYOUT V2' _site/assets/quotation-layout-v2.css
           grep -q 'data-conutway-favicon="gt-v1"' _site/index.html
           grep -q 'data-conutway-favicon="gt-v1"' _site/login.html
           grep -q 'data-conutway-favicon="gt-v1"' _site/404.html
@@ -158,7 +166,7 @@ jobs:
   verify-login:
     runs-on: ubuntu-latest
     needs: deploy
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - name: Baixar repositório
         uses: actions/checkout@v4
@@ -179,6 +187,9 @@ jobs:
       - name: Testar visual, login, workspace e logout publicados
         run: node .github/scripts/pages-login-audit.mjs
 
+      - name: Testar layout responsivo de Cotações publicado
+        run: CONUTWAY_BASE_URL=https://stepoil-debug.github.io/conutway/ node .github/scripts/pages-quotation-layout-audit.mjs
+
       - name: Testar Documentos e Manuais publicados
         run: CONUTWAY_BASE=https://stepoil-debug.github.io/conutway/ node .github/scripts/documents-pages-audit.mjs
 
@@ -196,6 +207,9 @@ jobs:
             pages-workspace-audit.png
             pages-workspace-collapsed-audit.png
             pages-workspace-projects-audit.png
+            pages-workspace-quotation-pricing-1600.png
+            pages-workspace-quotation-pricing-1366.png
+            pages-workspace-quotation-pricing-error.png
             pages-workspace-po-audit.png
             pages-workspace-documents-audit.png
             pages-workspace-documents-functional-audit.png
