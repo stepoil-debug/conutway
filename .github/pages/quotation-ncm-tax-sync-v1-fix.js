@@ -31,6 +31,40 @@ conutwayNcmApplyFiscalProfile = function conutwayNcmApplyFiscalProfileSafe(proje
   return result;
 };
 
+/* A tributação não pode depender do evento visual de blur/change. Toda vez que
+   o motor pede a regra fiscal de um item, resolvemos primeiro o produto/CT Code
+   ou, na ausência dele, uma regra já cadastrada para o mesmo NCM. Isso cobre
+   cotações carregadas, importadas, restauradas ou editadas por outros fluxos. */
+const conutwayNcmLegacyV3ItemTaxConfig = conutwayV3ItemTaxConfig;
+conutwayV3ItemTaxConfig = function conutwayNcmV3ItemTaxConfig(project, item) {
+  const config = conutwayV3Config(project);
+  if (config && item) {
+    config.itemTaxes ||= {};
+    const saved = config.itemTaxes[item.id] || null;
+    if (saved?._source !== 'manual') {
+      const resolved = conutwayNcmResolveProduct(item);
+      if (resolved.product) {
+        const ncmKey = conutwayNcmKey(item.ncm || resolved.product.ncm);
+        const ruleProductId = String(resolved.product.id || '');
+        const expectedSource = resolved.source === 'ncm' ? 'ncm' : 'product';
+        const bindingOk = Boolean(saved)
+          && saved._source === expectedSource
+          && saved._ncm === ncmKey
+          && (expectedSource === 'ncm'
+            ? saved._ruleProductId === ruleProductId
+            : saved._productId === ruleProductId);
+        if (!bindingOk) {
+          conutwayNcmApplyFiscalProfile(project, item, resolved.product, {
+            force: true,
+            source: expectedSource,
+          });
+        }
+      }
+    }
+  }
+  return conutwayNcmLegacyV3ItemTaxConfig(project, item);
+};
+
 document.addEventListener('change', (event) => {
   const target = event.target;
   if (!(target instanceof HTMLElement) || target.dataset.itemField !== 'ncm') return;
