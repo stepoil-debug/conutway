@@ -11,7 +11,7 @@ permissions:
 jobs:
   build-and-browser:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - name: Baixar repositório
         uses: actions/checkout@v4
@@ -57,6 +57,9 @@ jobs:
       - name: Aplicar interface interna premium
         run: python3 .github/scripts/apply_workspace_premium.py _site
 
+      - name: Aplicar layout responsivo de Cotações
+        run: python3 .github/scripts/apply_quotation_layout.py _site
+
       - name: Validar arquivos finais
         shell: bash
         run: |
@@ -66,6 +69,7 @@ jobs:
           test -s _site/assets/conutway-teza-logo-v2.svg
           test -s _site/assets/workspace-sidebar-collapse.css
           test -s _site/assets/workspace-sidebar-collapse.js
+          test -s _site/assets/quotation-layout-v2.css
           grep -q '<base href="/conutway/">' _site/index.html
           grep -q 'id="pagesAuthGuard"' _site/index.html
           grep -q 'id="pagesLogoutHandler"' _site/index.html
@@ -74,6 +78,8 @@ jobs:
           grep -q 'assets/conutway-teza-logo-v2.svg' _site/index.html
           grep -q 'assets/workspace-sidebar-collapse.css' _site/index.html
           grep -q 'assets/workspace-sidebar-collapse.js' _site/index.html
+          grep -q 'data-conutway-quotation-layout="v2"' _site/index.html
+          grep -q 'CONUTWAY QUOTATION LAYOUT V2' _site/assets/quotation-layout-v2.css
           grep -q 'CONUTWAY SIDEBAR COLLAPSIBLE PREMIUM V1' _site/assets/workspace-sidebar-collapse.css
           grep -q 'CONUTWAY SIDEBAR COLLAPSIBLE PREMIUM V1' _site/assets/workspace-sidebar-collapse.js
           grep -q 'sidebarCollapseBtn' _site/assets/workspace-sidebar-collapse.js
@@ -110,7 +116,7 @@ jobs:
           npm install --no-save playwright
           npx playwright install --with-deps chromium
 
-      - name: Auditar login, módulos, Documentos e RFQ no build local
+      - name: Auditar login, Cotações, Documentos e RFQ no build local
         shell: bash
         run: |
           set -euo pipefail
@@ -128,6 +134,7 @@ jobs:
           cp .github/scripts/pages-login-audit.mjs .github/scripts/local-pages-login-audit.mjs
           sed -i 's#https://stepoil-debug.github.io/conutway/#http://127.0.0.1:4173/conutway/#g' .github/scripts/local-pages-login-audit.mjs
           node .github/scripts/local-pages-login-audit.mjs
+          CONUTWAY_BASE_URL=http://127.0.0.1:4173/conutway/ node .github/scripts/pages-quotation-layout-audit.mjs
           CONUTWAY_BASE=http://127.0.0.1:4173/conutway/ node .github/scripts/documents-pages-audit.mjs
           CONUTWAY_BASE_URL=http://127.0.0.1:4173/conutway/ node .github/scripts/pages-rfq-audit.mjs
 
@@ -142,6 +149,9 @@ jobs:
             pages-workspace-audit.png
             pages-workspace-collapsed-audit.png
             pages-workspace-projects-audit.png
+            pages-workspace-quotation-pricing-1600.png
+            pages-workspace-quotation-pricing-1366.png
+            pages-workspace-quotation-pricing-error.png
             pages-workspace-po-audit.png
             pages-workspace-documents-audit.png
             pages-workspace-documents-functional-audit.png
@@ -153,5 +163,6 @@ jobs:
             _site/styles.css
             _site/assets/workspace-sidebar-collapse.css
             _site/assets/workspace-sidebar-collapse.js
+            _site/assets/quotation-layout-v2.css
           if-no-files-found: warn
           retention-days: 7
