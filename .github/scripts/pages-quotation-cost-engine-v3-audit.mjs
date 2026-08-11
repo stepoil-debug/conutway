@@ -28,6 +28,40 @@ try {
   await page.waitForURL((url) => url.pathname.endsWith('/conutway/') || url.pathname.endsWith('/conutway'), { timeout: 15000 });
   await page.locator('.app-shell').waitFor({ state: 'visible', timeout: 15000 });
 
+  const productCatalogProbe = await page.evaluate(() => {
+    const products = Array.isArray(state?.products) ? state.products : [];
+    const projects = Array.isArray(state?.projects) ? state.projects : [];
+    const productRows = products.slice(0, 12).map((product) => ({
+      keys: Object.keys(product || {}).sort(),
+      id: product?.id ?? null,
+      ctCode: product?.ctCode ?? product?.code ?? product?.sku ?? null,
+      name: product?.name ?? product?.description ?? product?.model ?? null,
+      ncm: product?.ncm ?? product?.ncmCode ?? product?.fiscalNcm ?? null,
+      ipiRate: product?.ipiRate ?? null,
+      icmsRate: product?.icmsRate ?? null,
+      pisImportRate: product?.pisImportRate ?? null,
+      cofinsImportRate: product?.cofinsImportRate ?? null,
+      raw: product,
+    }));
+    const existingItems = projects.flatMap((project) => Array.isArray(project?.items) ? project.items : []).slice(0, 12).map((item) => ({
+      keys: Object.keys(item || {}).sort(),
+      id: item?.id ?? null,
+      productId: item?.productId ?? null,
+      ctCode: item?.ctCode ?? null,
+      ncm: item?.ncm ?? null,
+      ipiRate: item?.ipiRate ?? null,
+      icmsRate: item?.icmsRate ?? null,
+      raw: item,
+    }));
+    return {
+      productCount: products.length,
+      productRows,
+      existingItemCount: existingItems.length,
+      existingItems,
+    };
+  });
+  console.log('CONUTWAY_PRODUCT_CATALOG_PROBE', JSON.stringify(productCatalogProbe, null, 2));
+
   const engineCss = page.locator('link[data-conutway-cost-engine="v3"]');
   if (!(await engineCss.count())) fail('CSS do motor V3 não foi carregado.');
 
@@ -98,6 +132,7 @@ try {
   await page.screenshot({ path: 'pages-workspace-quotation-cost-engine-v3.png', fullPage: true });
   console.log(JSON.stringify({
     ok: true,
+    productCatalogProbe,
     profile: selectedText,
     landedUnitCostBrl: landed,
     suggestedSaleUnitBrl: suggested,
