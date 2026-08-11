@@ -136,28 +136,44 @@ function conutwayLiveFxStatus(project = currentProject()) {
 function conutwayLiveFxDecoratePricingBar() {
   const select = document.querySelector('#quoteCostProfileSelect');
   const bar = select?.closest('.estimated-cost-profile-bar') || select?.parentElement;
-  if (!select || !bar || bar.querySelector('[data-live-fx-control="v1"]')) return;
+  if (!select || !bar) return;
 
   const project = currentProject();
   const formula = conutwayV3Formula(project);
   const raw = Math.max(0, Number(formula?.fxRate || 0));
   const effective = conutwayV3EffectiveFx(formula);
+  let control = bar.querySelector('[data-live-fx-control="v1"]');
 
-  const control = document.createElement('div');
-  control.className = 'live-fx-control';
-  control.dataset.liveFxControl = 'v1';
-  control.innerHTML = `
-    <div class="live-fx-values">
-      <span class="live-fx-label">Câmbio USD/BRL</span>
-      <strong data-live-fx-raw>${raw ? raw.toFixed(4) : '—'}</strong>
-      <small data-live-fx-effective>Efetivo c/ buffer: ${effective ? effective.toFixed(4) : '—'}</small>
-      <small class="live-fx-source" data-live-fx-source>${conutwayV3Escape(conutwayLiveFxStatus(project))}</small>
-    </div>
-    <button type="button" class="secondary live-fx-refresh" data-live-fx-refresh>Atualizar câmbio agora</button>
-  `;
-  const refreshButton = control.querySelector('[data-live-fx-refresh]');
-  refreshButton?.addEventListener('click', () => conutwayLiveFxRefresh(refreshButton));
-  bar.appendChild(control);
+  if (!control) {
+    control = document.createElement('div');
+    control.className = 'live-fx-control';
+    control.dataset.liveFxControl = 'v1';
+    control.innerHTML = `
+      <div class="live-fx-values">
+        <span class="live-fx-label">Câmbio USD/BRL</span>
+        <strong data-live-fx-raw>—</strong>
+        <small data-live-fx-effective></small>
+        <small class="live-fx-source" data-live-fx-source></small>
+      </div>
+      <button type="button" class="secondary live-fx-refresh" data-live-fx-refresh>Atualizar câmbio agora</button>
+    `;
+    const refreshButton = control.querySelector('[data-live-fx-refresh]');
+    refreshButton?.addEventListener('click', () => conutwayLiveFxRefresh(refreshButton));
+    bar.appendChild(control);
+  }
+
+  const rawNode = control.querySelector('[data-live-fx-raw]');
+  const effectiveNode = control.querySelector('[data-live-fx-effective]');
+  const sourceNode = control.querySelector('[data-live-fx-source]');
+  const button = control.querySelector('[data-live-fx-refresh]');
+  if (rawNode) rawNode.textContent = raw ? raw.toFixed(4) : '—';
+  if (effectiveNode) effectiveNode.textContent = `Efetivo c/ buffer: ${effective ? effective.toFixed(4) : '—'}`;
+  if (sourceNode) sourceNode.textContent = conutwayLiveFxStatus(project);
+  if (button) {
+    button.disabled = false;
+    button.textContent = 'Atualizar câmbio agora';
+    button.title = '';
+  }
 }
 
 async function conutwayLiveFxRefresh(button) {
