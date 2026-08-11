@@ -78,6 +78,8 @@ jobs:
           grep -q 'CONUTWAY SIDEBAR COLLAPSIBLE PREMIUM V1' _site/assets/workspace-sidebar-collapse.js
           grep -q 'sidebarCollapseBtn' _site/assets/workspace-sidebar-collapse.js
           test "$(grep -o 'data-module-target=' _site/index.html | wc -l)" -eq 14
+          grep -q 'data-module-target="documents"' _site/index.html
+          grep -q 'id="documents"' _site/index.html
           grep -q 'id="loginForm"' _site/login.html
           grep -q 'target-v2-backup-hero' _site/login.html
           grep -q 'conutway-brazil-china-hero.webp' _site/login.html
@@ -136,7 +138,11 @@ jobs:
             pages-workspace-collapsed-audit.png
             pages-workspace-projects-audit.png
             pages-workspace-po-audit.png
+            pages-workspace-documents-audit.png
             _site/index.html
+            _site/app.js
+            _site/permissions.js
+            _site/storage.js
             _site/styles.css
             _site/assets/workspace-sidebar-collapse.css
             _site/assets/workspace-sidebar-collapse.js
