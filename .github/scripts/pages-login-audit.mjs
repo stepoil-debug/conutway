@@ -10,7 +10,7 @@ const EXPECTED_MODULES = [
 ];
 const BUSINESS_MODULES_TO_TEST = [
   'customers','projects','contracts','projectAccounts','suppliers','purchaseOrders',
-  'inventory','products','options','sellers','users'
+  'inventory','products','options','documents','sellers','users'
 ];
 const report = {
   startedAt: new Date().toISOString(), loginStatus: null, buildMarker: null,
@@ -20,7 +20,7 @@ const report = {
   workspaceSidebarWidth: null, workspaceSidebarExpandedWidth: null, workspaceSidebarCollapsedWidth: null,
   workspaceExpandedX: null, workspaceCollapsedX: null, sidebarToggleVisible: false,
   sidebarPersistenceWorked: false, sidebarCollapsedNavigationWorked: false,
-  moduleNavigationTested: [],
+  moduleNavigationTested: [], documentsDiagnostics: null,
   invalidCredentialRejected: false, validCredentialAccepted: false, logoutWorked: false,
   consoleErrors: [], pageErrors: [], requestFailures: [], httpErrors: [], criticalHttpErrors: [], finishedAt: null,
 };
@@ -161,6 +161,24 @@ try {
     await button.scrollIntoViewIfNeeded();
     await button.click();
     const section = page.locator(`#${target}`);
+    if (target === 'documents') {
+      await page.waitForTimeout(500);
+      report.documentsDiagnostics = await page.evaluate(() => {
+        const section = document.getElementById('documents');
+        const button = document.querySelector('.module-nav button[data-module-target="documents"]');
+        return {
+          sectionExists: Boolean(section),
+          sectionClass: section?.className || null,
+          sectionDisplay: section ? getComputedStyle(section).display : null,
+          sectionVisibility: section ? getComputedStyle(section).visibility : null,
+          sectionRect: section ? section.getBoundingClientRect().toJSON() : null,
+          buttonClass: button?.className || null,
+          buttonAriaCurrent: button?.getAttribute('aria-current') || null,
+          activeModuleIds: [...document.querySelectorAll('.module-page.active')].map((node) => node.id),
+        };
+      });
+      await page.screenshot({ path:'pages-workspace-documents-audit.png', fullPage:false });
+    }
     await section.waitFor({ state:'visible', timeout:10000 });
     if (!(await section.isVisible())) fail(`Módulo ${target} não ficou visível após navegação.`);
     report.moduleNavigationTested.push(target);
