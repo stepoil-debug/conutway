@@ -58,36 +58,46 @@ async function conutwayLiveFxFetchBcbLatest() {
   throw lastError || new Error('Nenhuma cotação PTAX disponível nos últimos 7 dias.');
 }
 
+function conutwayLiveFxSnapshotWithRate(snapshot, rate) {
+  if (!snapshot || typeof snapshot !== 'object') return null;
+  const cloned = typeof conutwayV3Clone === 'function'
+    ? conutwayV3Clone(snapshot)
+    : JSON.parse(JSON.stringify(snapshot));
+  return { ...cloned, fxRate: rate };
+}
+
 function conutwayLiveFxApplySnapshot(project, fx) {
   if (!project || !fx || !(fx.rate > 0)) return false;
 
-  const updateSnapshot = (snapshot) => {
-    if (!snapshot || typeof snapshot !== 'object') return false;
-    snapshot.fxRate = fx.rate;
+  let updatedAnySnapshot = false;
+  const replaceSnapshot = (owner, field) => {
+    const next = conutwayLiveFxSnapshotWithRate(owner?.[field], fx.rate);
+    if (!next) return false;
+    owner[field] = next;
     return true;
   };
 
-  let updatedAnySnapshot = false;
-  updatedAnySnapshot = updateSnapshot(project.formulaSnapshot) || updatedAnySnapshot;
-  updatedAnySnapshot = updateSnapshot(project.costProfileSnapshot) || updatedAnySnapshot;
+  // Os snapshots do motor podem ser normalizados/recriados pelo ERP. Em vez de
+  // alterar fxRate dentro do objeto existente, substituímos o snapshot completo.
+  // Assim a nova taxa passa a ser a fonte efetiva do cálculo imediatamente.
+  updatedAnySnapshot = replaceSnapshot(project, 'formulaSnapshot') || updatedAnySnapshot;
+  updatedAnySnapshot = replaceSnapshot(project, 'costProfileSnapshot') || updatedAnySnapshot;
 
-  // O ERP também mantém snapshots da fórmula dentro de cada item. Todos devem
-  // receber a mesma taxa para que CIF, tributos e custo posto sejam recalculados
-  // de forma consistente, sem parte do orçamento permanecer com o dólar antigo.
   (project.items || []).forEach((item) => {
-    updatedAnySnapshot = updateSnapshot(item.formulaSnapshot) || updatedAnySnapshot;
-    updatedAnySnapshot = updateSnapshot(item.costProfileSnapshot) || updatedAnySnapshot;
+    updatedAnySnapshot = replaceSnapshot(item, 'formulaSnapshot') || updatedAnySnapshot;
+    updatedAnySnapshot = replaceSnapshot(item, 'costProfileSnapshot') || updatedAnySnapshot;
   });
 
-  // Projetos legados podem não ter snapshots ainda. Criamos um snapshot local
-  // a partir do perfil ativo, sem alterar o catálogo oficial/global.
+  // Projeto legado sem snapshot: parte do perfil ativo e cria snapshots locais.
   if (!updatedAnySnapshot) {
-    const profile = conutwayV3ProfileForProject(project) || (typeof conutwayV3OfficialProfile === 'function' ? conutwayV3OfficialProfile() : null);
+    const profile = conutwayV3ProfileForProject(project)
+      || (typeof conutwayV3OfficialProfile === 'function' ? conutwayV3OfficialProfile() : null);
     if (profile) {
-      project.formulaSnapshot = conutwayV3Clone(profile);
-      project.formulaSnapshot.fxRate = fx.rate;
+      project.formulaSnapshot = conutwayLiveFxSnapshotWithRate(profile, fx.rate);
+      project.costProfileSnapshot = conutwayLiveFxSnapshotWithRate(profile, fx.rate);
       (project.items || []).forEach((item) => {
-        item.formulaSnapshot = conutwayV3Clone(project.formulaSnapshot);
+        item.formulaSnapshot = conutwayLiveFxSnapshotWithRate(profile, fx.rate);
+        if (item.costProfileSnapshot) item.costProfileSnapshot = conutwayLiveFxSnapshotWithRate(item.costProfileSnapshot, fx.rate);
       });
       updatedAnySnapshot = true;
     }
@@ -102,14 +112,14 @@ function conutwayLiveFxApplySnapshot(project, fx) {
   project.updatedAt = new Date().toISOString();
 
   if (state.quoteCostProfileDraft && typeof state.quoteCostProfileDraft === 'object') {
-    state.quoteCostProfileDraft.fxRate = fx.rate;
+    state.quoteCostProfileDraft = conutwayLiveFxSnapshotWithRate(state.quoteCostProfileDraft, fx.rate);
   }
   return updatedAnySnapshot;
 }
 
 async function conutwayLiveFxPersistProjects() {
   try {
-    if (typeof api?.replace === 'function') {
+    if (typeof api !== 'undefined' && typeof api.replace === 'function') {
       await api.replace('projects', (state.projects || []).map((project) => conutwayV3Clone(project)));
     }
   } catch (error) {
@@ -161,11 +171,14 @@ async function conutwayLiveFxRefresh(button) {
     if (!conutwayLiveFxApplySnapshot(project, fx)) {
       throw new Error('Nenhum snapshot de precificação disponível para aplicar o câmbio.');
     }
-    await conutwayLiveFxPersistProjects();
+
+    // A tela e os cálculos são atualizados antes da persistência: o usuário não
+    // precisa esperar IndexedDB/storage para ver a nova cotação aplicada.
     if (typeof resetQuotationCostProfileDraft === 'function') resetQuotationCostProfileDraft();
     renderQuotationCostProfileBar();
     renderItemsEditor();
     renderQuote();
+    void conutwayLiveFxPersistProjects();
   } catch (error) {
     console.error('conutway_live_fx_update_failed', error);
     button.disabled = false;
