@@ -1,0 +1,104 @@
+/* CONUTWAY QUOTATION NCM TAX SYNC V1 */
+
+#products .form-section-brl-price .form-grid {
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+}
+
+#products .form-section-brl-price .form-grid label {
+  min-width: 0;
+}
+
+#products .form-section-brl-price .form-grid label > small {
+  display: block;
+  margin-top: 4px;
+  color: #748693;
+  font-size: 9px;
+  line-height: 1.3;
+}
+
+#products .ncm-tax-product-hint {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid #cfe2ee;
+  border-radius: 10px;
+  background: #f4fafd;
+  color: #355364;
+}
+
+#products .ncm-tax-product-hint strong {
+  color: #0b69a3;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .035em;
+}
+
+#products .ncm-tax-product-hint span {
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+#projects .ncm-tax-source {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  max-width: 100%;
+  margin-top: 5px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #eaf4fa;
+  color: #37677f;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: .025em;
+}
+
+#projects .ncm-tax-source.source-product,
+#projects .ncm-tax-source.source-ncm {
+  background: #e8f7ef;
+  color: #176845;
+}
+
+#projects .ncm-tax-source.source-manual {
+  background: #fff3dc;
+  color: #8a5800;
+}
+
+#projects .ncm-tax-source.source-ambiguous,
+#projects .ncm-tax-source.source-pending {
+  background: #fdecec;
+  color: #9d3030;
+}
+
+#projects .ncm-format-warning {
+  display: block;
+  margin-top: 5px !important;
+  color: #9b5e00 !important;
+  line-height: 1.3;
+}
+
+@media (max-width: 1300px) {
+  #products .form-section-brl-price .form-grid {
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  #products .form-section-brl-price .form-grid {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+  #products .ncm-tax-product-hint {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  #products .form-section-brl-price .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
