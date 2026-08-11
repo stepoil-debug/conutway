@@ -95,7 +95,7 @@ def main() -> int:
         attrs = 'class="brand-logo-full" ' + attrs
 
     full_logo = match.group(1) + attrs + match.group(3)
-    emblem_logo = '<img class="brand-logo-emblem" src="assets/conutway-teza-emblem.svg" alt="GT" aria-hidden="true">'
+    emblem_logo = '<object class="brand-logo-emblem" data="assets/conutway-teza-emblem.svg" type="image/svg+xml" aria-label="GT"></object>'
     html = html[: match.start()] + full_logo + emblem_logo + html[match.end() :]
 
     if THEME_ATTR not in html:
