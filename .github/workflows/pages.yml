@@ -12,6 +12,8 @@ on:
       - '.github/scripts/prepare_pages.py'
       - '.github/scripts/apply_workspace_premium.py'
       - '.github/scripts/pages-login-audit.mjs'
+      - '.github/scripts/documents-pages-audit.mjs'
+      - '.github/scripts/pages-rfq-audit.mjs'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -134,7 +136,7 @@ jobs:
   verify-login:
     runs-on: ubuntu-latest
     needs: deploy
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - name: Baixar repositório
         uses: actions/checkout@v4
@@ -155,14 +157,26 @@ jobs:
       - name: Testar visual, login, workspace e logout publicados
         run: node .github/scripts/pages-login-audit.mjs
 
+      - name: Testar Documentos e Manuais publicados
+        run: CONUTWAY_BASE=https://stepoil-debug.github.io/conutway/ node .github/scripts/documents-pages-audit.mjs
+
+      - name: Testar RFQ Interno publicado
+        run: CONUTWAY_BASE_URL=https://stepoil-debug.github.io/conutway/ node .github/scripts/pages-rfq-audit.mjs
+
       - name: Anexar evidências
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: conutway-pages-login-audit
+          name: conutway-pages-functional-audit
           path: |
             pages-login-audit.json
             pages-login-audit.png
             pages-workspace-audit.png
+            pages-workspace-collapsed-audit.png
+            pages-workspace-projects-audit.png
+            pages-workspace-po-audit.png
+            pages-workspace-documents-audit.png
+            pages-workspace-documents-functional-audit.png
+            pages-workspace-rfq-audit.png
           if-no-files-found: warn
           retention-days: 7
