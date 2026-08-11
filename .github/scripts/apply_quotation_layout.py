@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 import re
 import shutil
+import subprocess
 import sys
 
 MARKER = "CONUTWAY QUOTATION LAYOUT V2"
@@ -57,7 +58,19 @@ def main() -> int:
     if failed:
         raise RuntimeError("Falha na validação do layout de Cotações: " + ", ".join(failed))
 
-    print("QUOTATION_LAYOUT_OK", f"css_bytes={target.stat().st_size}", "version=v2")
+    engine_script = repo_root / ".github" / "scripts" / "apply_quotation_cost_engine_v3.py"
+    if not engine_script.is_file():
+        raise FileNotFoundError(f"Motor de custos V3 não encontrado: {engine_script}")
+    subprocess.run([sys.executable, str(engine_script), str(root)], cwd=repo_root, check=True)
+
+    final_app = (root / "app.js").read_text(encoding="utf-8")
+    final_index = index.read_text(encoding="utf-8")
+    if "CONUTWAY QUOTATION COST ENGINE V3" not in final_app:
+        raise RuntimeError("Motor de custos V3 não foi injetado no app.js.")
+    if 'data-conutway-cost-engine="v3"' not in final_index:
+        raise RuntimeError("CSS do motor de custos V3 não foi injetado no index.html.")
+
+    print("QUOTATION_LAYOUT_OK", f"css_bytes={target.stat().st_size}", "version=v2", "cost_engine=v3")
     return 0
 
 
