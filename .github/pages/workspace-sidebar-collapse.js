@@ -50,16 +50,17 @@
     buttons.forEach((button) => {
       if (button.hidden) button.hidden = false;
       if (button.disabled) button.disabled = false;
-      button.removeAttribute('hidden');
-      button.removeAttribute('disabled');
-      button.setAttribute('aria-disabled', 'false');
+      if (button.hasAttribute('hidden')) button.removeAttribute('hidden');
+      if (button.hasAttribute('disabled')) button.removeAttribute('disabled');
+      if (button.getAttribute('aria-disabled') !== 'false') button.setAttribute('aria-disabled', 'false');
     });
     const workspace = document.getElementById('internalRfqWorkspace');
     if (workspace) {
       workspace.querySelectorAll('[data-rfq-action="sync"]').forEach((button) => {
-        button.disabled = true;
-        button.title = 'Sincronização com servidor indisponível no ambiente demonstrativo';
-        button.setAttribute('aria-label', 'Sincronização com servidor indisponível no ambiente demonstrativo');
+        if (!button.disabled) button.disabled = true;
+        const title = 'Sincronização com servidor indisponível no ambiente demonstrativo';
+        if (button.title !== title) button.title = title;
+        if (button.getAttribute('aria-label') !== title) button.setAttribute('aria-label', title);
       });
     }
   };
