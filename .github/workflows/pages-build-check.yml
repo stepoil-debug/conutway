@@ -77,9 +77,12 @@ jobs:
           grep -q 'CONUTWAY SIDEBAR COLLAPSIBLE PREMIUM V1' _site/assets/workspace-sidebar-collapse.css
           grep -q 'CONUTWAY SIDEBAR COLLAPSIBLE PREMIUM V1' _site/assets/workspace-sidebar-collapse.js
           grep -q 'sidebarCollapseBtn' _site/assets/workspace-sidebar-collapse.js
+          grep -q 'conutwayPagesInternalRfqEnabled' _site/assets/workspace-sidebar-collapse.js
           test "$(grep -o 'data-module-target=' _site/index.html | wc -l)" -eq 14
           grep -q 'data-module-target="documents"' _site/index.html
           grep -q 'id="documents"' _site/index.html
+          grep -q 'data-module-target="internalRfqs"' _site/index.html
+          grep -q 'id="internalRfqs"' _site/index.html
           grep -q 'id="loginForm"' _site/login.html
           grep -q 'target-v2-backup-hero' _site/login.html
           grep -q 'conutway-brazil-china-hero.webp' _site/login.html
@@ -107,7 +110,7 @@ jobs:
           npm install --no-save playwright
           npx playwright install --with-deps chromium
 
-      - name: Auditar login e navegação no build local
+      - name: Auditar login, módulos e RFQ no build local
         shell: bash
         run: |
           set -euo pipefail
@@ -125,6 +128,7 @@ jobs:
           cp .github/scripts/pages-login-audit.mjs .github/scripts/local-pages-login-audit.mjs
           sed -i 's#https://stepoil-debug.github.io/conutway/#http://127.0.0.1:4173/conutway/#g' .github/scripts/local-pages-login-audit.mjs
           node .github/scripts/local-pages-login-audit.mjs
+          CONUTWAY_BASE_URL=http://127.0.0.1:4173/conutway/ node .github/scripts/pages-rfq-audit.mjs
 
       - name: Guardar evidências da auditoria
         if: always()
@@ -139,6 +143,7 @@ jobs:
             pages-workspace-projects-audit.png
             pages-workspace-po-audit.png
             pages-workspace-documents-audit.png
+            pages-workspace-rfq-audit.png
             _site/index.html
             _site/app.js
             _site/permissions.js
