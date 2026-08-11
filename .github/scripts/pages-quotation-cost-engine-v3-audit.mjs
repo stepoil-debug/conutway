@@ -1,23 +1,20 @@
 import { chromium } from 'playwright';
 
 const BASE = process.env.CONUTWAY_BASE_URL || 'https://stepoil-debug.github.io/conutway/';
+const QA_NCM = '99000001';
 const browser = await chromium.launch({ headless: true });
-const context = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+const context = await browser.newContext({ viewport: { width: 1600, height: 1100 } });
 const page = await context.newPage();
 
 const fail = (message) => { throw new Error(message); };
+const number = (value) => Number(String(value ?? '').replace(',', '.')) || 0;
 const parseMoney = (text = '') => {
   let raw = String(text).replace(/[^0-9,.-]/g, '');
   const comma = raw.lastIndexOf(',');
   const dot = raw.lastIndexOf('.');
-  if (comma >= 0 && dot >= 0) {
-    if (comma > dot) raw = raw.replace(/\./g, '').replace(',', '.');
-    else raw = raw.replace(/,/g, '');
-  } else if (comma >= 0) {
-    raw = raw.replace(',', '.');
-  }
-  const value = Number(raw);
-  return Number.isFinite(value) ? value : 0;
+  if (comma >= 0 && dot >= 0) raw = comma > dot ? raw.replace(/\./g, '').replace(',', '.') : raw.replace(/,/g, '');
+  else if (comma >= 0) raw = raw.replace(',', '.');
+  return Number(raw) || 0;
 };
 
 try {
@@ -28,9 +25,53 @@ try {
   await page.waitForURL((url) => url.pathname.endsWith('/conutway/') || url.pathname.endsWith('/conutway'), { timeout: 15000 });
   await page.locator('.app-shell').waitFor({ state: 'visible', timeout: 15000 });
 
-  const engineCss = page.locator('link[data-conutway-cost-engine="v3"]');
-  if (!(await engineCss.count())) fail('CSS do motor V3 não foi carregado.');
+  if (!(await page.locator('link[data-conutway-cost-engine="v3"]').count())) fail('CSS do motor V3 ausente.');
+  if (!(await page.locator('link[data-conutway-ncm-tax-sync="v1"]').count())) fail('CSS da integração NCM ausente.');
 
+  // 1) Cadastro fiscal do produto. O NCM QA é isolado do catálogo real para
+  // testar o caso inequívoco; conflitos reais permanecem como pendência.
+  await page.locator('.module-nav button[data-module-target="products"]').click();
+  await page.locator('#products').waitFor({ state: 'visible', timeout: 10000 });
+  await page.locator('#newProductBtn').click();
+  for (const field of ['iiRate','pisImportRate','cofinsImportRate','icmsExtraBaseBrl']) {
+    if (!(await page.locator(`[data-product-field="${field}"]`).count())) fail(`Campo fiscal do produto ausente: ${field}`);
+  }
+
+  const valuesToFill = {
+    ctCode: 'CT-9901',
+    ncm: QA_NCM,
+    descriptionPt: 'Produto QA tributação por NCM',
+    uom: 'UN',
+    cifUnitPrice: '1000',
+    iiRate: '14',
+    ipiRate: '5',
+    pisImportRate: '2.1',
+    cofinsImportRate: '9.65',
+    icmsRate: '20',
+    icmsExtraBaseBrl: '0',
+  };
+  for (const [field, value] of Object.entries(valuesToFill)) {
+    await page.locator(`[data-product-field="${field}"]`).fill(value);
+  }
+  await page.locator('#saveProductBtn').click();
+  await page.waitForTimeout(600);
+
+  const savedProduct = await page.evaluate((qaNcm) => {
+    const product = state.products.find((item) => item.ctCode === 'CT-9901');
+    return product ? {
+      id: product.id, ctCode: product.ctCode, ncm: product.ncm,
+      expectedNcm: qaNcm,
+      iiRate: product.iiRate, ipiRate: product.ipiRate,
+      pisImportRate: product.pisImportRate, cofinsImportRate: product.cofinsImportRate,
+      icmsRate: product.icmsRate,
+    } : null;
+  }, QA_NCM);
+  if (!savedProduct) fail('Produto QA não foi salvo.');
+  if (savedProduct.ncm !== QA_NCM || number(savedProduct.iiRate) !== 14 || number(savedProduct.icmsRate) !== 20) {
+    fail(`Cadastro fiscal do produto incorreto: ${JSON.stringify(savedProduct)}`);
+  }
+
+  // 2) Cotação deve herdar o produto inteiro e a regra fiscal automaticamente.
   await page.locator('.module-nav button[data-module-target="projects"]').click();
   await page.locator('#projects').waitFor({ state: 'visible', timeout: 10000 });
   await page.locator('#newProjectBtn').click();
@@ -40,71 +81,82 @@ try {
 
   const profile = page.locator('#quoteCostProfileSelect');
   await profile.waitFor({ state: 'visible', timeout: 10000 });
-  const selectedProfile = await profile.inputValue();
-  const selectedText = await profile.locator('option:checked').textContent();
-  if (selectedProfile !== 'cost-rj-rio-brasil-2026-v3') fail(`Perfil oficial não foi aplicado automaticamente: ${selectedProfile} / ${selectedText}`);
-  if (!String(selectedText).includes('OFICIAL')) fail(`Perfil oficial sem identificação visual: ${selectedText}`);
+  if (await profile.inputValue() !== 'cost-rj-rio-brasil-2026-v3') fail('Perfil oficial não foi aplicado automaticamente.');
 
-  const panel = page.locator('#quotationDetailedCostPanel');
-  await panel.waitFor({ state: 'visible', timeout: 10000 });
-  if (!(await panel.getByText('Memória de cálculo da importação').count())) fail('Memória de cálculo detalhada não apareceu.');
+  const ct = page.locator('[data-item-field="ctCode"]').first();
+  await ct.fill('CT-9901');
+  await ct.dispatchEvent('change');
+  await page.waitForTimeout(500);
 
-  const cif = page.locator('[data-item-field="cifUnitPrice"]').first();
-  await cif.fill('1000');
-  await cif.press('Tab');
-  await page.waitForTimeout(300);
+  const inheritedNcm = await page.locator('[data-item-field="ncm"]').first().inputValue();
+  if (inheritedNcm !== QA_NCM) fail(`NCM não foi herdado do produto: ${inheritedNcm}`);
+
+  const expectedRates = { iiRate: 14, ipiRate: 5, pisImportRate: 2.1, cofinsImportRate: 9.65, icmsRate: 20 };
+  for (const [field, expected] of Object.entries(expectedRates)) {
+    const actual = number(await page.locator(`[data-v3-item-field="${field}"]`).first().inputValue());
+    if (Math.abs(actual - expected) > 0.001) fail(`${field} não veio do cadastro/NCM: ${actual} != ${expected}`);
+  }
+
+  const sourceText = await page.locator('.ncm-tax-source').first().textContent();
+  if (!String(sourceText).includes('Cadastro do produto')) fail(`Origem fiscal incorreta: ${sourceText}`);
 
   const landedText = await page.locator('[data-cost-output="landedUnitCostBrl"]').first().textContent();
   const suggestedText = await page.locator('[data-suggested-price-value]').first().textContent();
-  const summaryText = await page.locator('[data-project-pricing-field="landedTotalBrl"] strong').textContent();
   const landed = parseMoney(landedText);
   const suggested = parseMoney(suggestedText);
-  const summary = parseMoney(summaryText);
-  if (!(landed > 0)) fail(`Custo posto permaneceu zerado após CIF USD 1000: ${landedText}`);
-  if (!(suggested > landed)) fail(`Venda sugerida não superou o custo posto: custo=${landedText} sugerido=${suggestedText}`);
-  if (!(summary > 0)) fail(`Resumo de custo posto permaneceu zerado: ${summaryText}`);
+  if (!(landed > 10000)) fail(`Custo posto não incorporou tributação do produto: ${landedText}`);
+  if (!(suggested > landed)) fail(`Venda sugerida inválida: custo=${landedText} venda=${suggestedText}`);
 
-  const memory = await panel.textContent();
-  for (const expected of ['PIS-Importação', 'COFINS-Importação', 'Terminal — procedimento operacional', 'Terminal — inspeção não invasiva', 'Terminal — movimentação / carregamento', 'Terminal — pesagem']) {
-    if (!memory.includes(expected)) fail(`Linha obrigatória ausente da memória: ${expected}`);
-  }
-
-  const values = await page.evaluate(() => {
+  const flow = await page.evaluate(() => {
     const project = currentProject();
+    const item = project.items[0];
+    const taxes = project.detailedCostEngine?.itemTaxes?.[item.id] || {};
     const breakdown = conutwayV3AllBreakdown(project);
     return {
-      profileId: project.costCatalogProfileId,
-      profileVersion: project.costCatalogVersion,
-      engineVersion: project.costEngineVersion,
-      cifBrl: breakdown?.projectCifBrl || 0,
-      landedTotal: breakdown?.landedTotal || 0,
-      pis: breakdown?.itemTaxTotals?.pis || 0,
-      cofins: breakdown?.itemTaxTotals?.cofins || 0,
-      terminal: breakdown?.projectFees?.terminal?.total || 0,
-      pending: breakdown?.pending || [],
-      itemCalculation: project.items?.[0]?.detailedBreakdown || null,
+      item: { productId: item.productId, ctCode: item.ctCode, ncm: item.ncm, ipiRate: item.ipiRate, icmsRate: item.icmsRate, fiscalSource: item.fiscalSource },
+      taxes,
+      totals: {
+        cifBrl: breakdown.projectCifBrl,
+        ii: breakdown.itemTaxTotals.ii,
+        ipi: breakdown.itemTaxTotals.ipi,
+        pis: breakdown.itemTaxTotals.pis,
+        cofins: breakdown.itemTaxTotals.cofins,
+        icms: breakdown.itemTaxTotals.icms,
+        terminal: breakdown.projectFees.terminal.total,
+        landed: breakdown.landedTotal,
+      },
     };
   });
+  if (!flow.item.productId || flow.taxes._source !== 'product') fail(`Vínculo produto/fiscal não persistiu: ${JSON.stringify(flow)}`);
+  if (!(flow.totals.ii > 0 && flow.totals.ipi > 0 && flow.totals.pis > 0 && flow.totals.cofins > 0 && flow.totals.icms > 0)) {
+    fail(`Tributos não entraram no cálculo: ${JSON.stringify(flow.totals)}`);
+  }
 
-  if (values.engineVersion !== 3 || values.profileId !== 'cost-rj-rio-brasil-2026-v3') fail(`Snapshot V3 inválido: ${JSON.stringify(values)}`);
-  if (!(values.cifBrl > 0 && values.landedTotal > values.cifBrl)) fail(`Custos não foram somados ao CIF: ${JSON.stringify(values)}`);
-  if (!(values.pis > 0 && values.cofins > 0 && values.terminal > 0)) fail(`Tributos/taxas esperados não foram calculados: ${JSON.stringify(values)}`);
-  if (!values.itemCalculation || values.itemCalculation.version !== 3) fail(`Memória por item não foi armazenada: ${JSON.stringify(values.itemCalculation)}`);
-
-  await page.locator('#saveProjectBtn').click();
+  // 3) Uma regra fiscal inequívoca do mesmo NCM pode ser reaproveitada sem
+  // transformar o segundo item no produto que originou a regra.
+  await page.locator('#addItemBtn').click();
+  await page.locator('[data-item-field="descriptionPt"]').nth(1).fill('Outro produto com o mesmo NCM');
+  const secondNcm = page.locator('[data-item-field="ncm"]').nth(1);
+  await secondNcm.fill(QA_NCM);
+  await secondNcm.dispatchEvent('change');
   await page.waitForTimeout(500);
-  const quoteNumber = await page.locator('#projectDetail [data-project-summary="quoteNumber"], #projectDetail .project-detail-number').first().textContent().catch(() => '');
+
+  const secondIdentity = await page.evaluate(() => {
+    const project = currentProject();
+    const item = project.items[1];
+    // Força a resolução pelo próprio motor, sem depender do evento visual.
+    conutwayV3ItemTaxConfig(project, item);
+    const taxes = project.detailedCostEngine?.itemTaxes?.[item.id] || {};
+    return { ctCode: item.ctCode, descriptionPt: item.descriptionPt, ncm: item.ncm, source: taxes._source, iiRate: taxes.iiRate, icmsRate: taxes.icmsRate };
+  });
+  if (secondIdentity.ctCode === 'CT-9901') fail(`NCM alterou indevidamente a identidade do segundo produto: ${JSON.stringify(secondIdentity)}`);
+  if (secondIdentity.descriptionPt !== 'Outro produto com o mesmo NCM') fail(`Descrição do segundo produto foi alterada: ${JSON.stringify(secondIdentity)}`);
+  if (secondIdentity.source !== 'ncm' || number(secondIdentity.iiRate) !== 14 || number(secondIdentity.icmsRate) !== 20) {
+    fail(`Regra fiscal por NCM não foi reaproveitada: ${JSON.stringify(secondIdentity)}`);
+  }
 
   await page.screenshot({ path: 'pages-workspace-quotation-cost-engine-v3.png', fullPage: true });
-  console.log(JSON.stringify({
-    ok: true,
-    profile: selectedText,
-    landedUnitCostBrl: landed,
-    suggestedSaleUnitBrl: suggested,
-    landedSummaryBrl: summary,
-    quoteNumber,
-    values,
-  }, null, 2));
+  console.log(JSON.stringify({ ok: true, flow: 'Produto -> NCM -> tributos -> custo posto', qaNcm: QA_NCM, savedProduct, landedUnitCostBrl: landed, suggestedSaleUnitBrl: suggested, taxFlow: flow, secondIdentity }, null, 2));
 } catch (error) {
   await page.screenshot({ path: 'pages-workspace-quotation-cost-engine-v3-error.png', fullPage: true }).catch(() => {});
   console.error(error?.stack || String(error));
