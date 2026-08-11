@@ -19,6 +19,63 @@
     users: 'US',
   };
 
+  /*
+   * O bundle legado bloqueia internalRfqs quando serverStorageAllowed() é false.
+   * No GitHub Pages os rascunhos de RFQ já possuem armazenamento local (IndexedDB),
+   * portanto liberamos o módulo e mantemos o scheduler remoto desligado para não
+   * gerar chamadas repetidas para /api/rfq-exchange em um host estático.
+   */
+  const installPagesInternalRfq = () => {
+    try {
+      if (window.__conutwayPagesInternalRfqEnabled) return;
+      if (typeof canCurrentUserAccessModule === 'function') {
+        const baseCanAccessModule = canCurrentUserAccessModule;
+        canCurrentUserAccessModule = function pagesCanCurrentUserAccessModule(moduleName = '') {
+          if (moduleName === 'internalRfqs') return true;
+          return baseCanAccessModule(moduleName);
+        };
+      }
+      if (typeof reconcileRfqSchedulerAccess === 'function') {
+        reconcileRfqSchedulerAccess = function pagesReconcileRfqSchedulerAccess() {
+          try { rfqController?.stopScheduler?.(); } catch (_) {}
+          return false;
+        };
+      }
+      window.__conutwayPagesInternalRfqEnabled = true;
+    } catch (_) {}
+  };
+
+  const ensureInternalRfqAccess = () => {
+    const buttons = document.querySelectorAll('[data-module-target="internalRfqs"], [data-dashboard-module="internalRfqs"]');
+    buttons.forEach((button) => {
+      if (button.hidden) button.hidden = false;
+      if (button.disabled) button.disabled = false;
+      if (button.hasAttribute('hidden')) button.removeAttribute('hidden');
+      if (button.hasAttribute('disabled')) button.removeAttribute('disabled');
+      if (button.getAttribute('aria-disabled') !== 'false') button.setAttribute('aria-disabled', 'false');
+    });
+    const workspace = document.getElementById('internalRfqWorkspace');
+    if (workspace) {
+      workspace.querySelectorAll('[data-rfq-action="sync"]').forEach((button) => {
+        if (!button.disabled) button.disabled = true;
+        const title = 'Sincronização com servidor indisponível no ambiente demonstrativo';
+        if (button.title !== title) button.title = title;
+        if (button.getAttribute('aria-label') !== title) button.setAttribute('aria-label', title);
+      });
+    }
+  };
+
+  const observeInternalRfqAccess = () => {
+    ensureInternalRfqAccess();
+    const root = document.body;
+    if (!root || window.__conutwayPagesInternalRfqObserver) return;
+    const observer = new MutationObserver(() => ensureInternalRfqAccess());
+    observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'disabled'] });
+    window.__conutwayPagesInternalRfqObserver = observer;
+  };
+
+  installPagesInternalRfq();
+
   const readPreference = () => {
     try { return localStorage.getItem(STORAGE_KEY) === '1'; }
     catch (_) { return false; }
@@ -96,9 +153,13 @@
 
   const init = () => {
     const sidebar = document.getElementById('workspaceSidebar') || document.querySelector('.sidebar');
-    if (!sidebar || document.getElementById('sidebarCollapseBtn')) return;
+    if (!sidebar || document.getElementById('sidebarCollapseBtn')) {
+      observeInternalRfqAccess();
+      return;
+    }
 
     installCollapsedPolish();
+    observeInternalRfqAccess();
 
     const media = window.matchMedia(DESKTOP_QUERY);
     const moduleNav = sidebar.querySelector('.module-nav');
