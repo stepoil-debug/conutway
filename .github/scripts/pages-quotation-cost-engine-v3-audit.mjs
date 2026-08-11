@@ -19,27 +19,6 @@ const parseMoney = (text = '') => {
 };
 
 try {
-  // Torna o teste determinístico sem depender da cotação real do dia.
-  // Como a chamada parte do app para o domínio do BCB, o mock precisa reproduzir
-  // também o cabeçalho CORS que permite a leitura da resposta pelo navegador.
-  await page.route('https://olinda.bcb.gov.br/**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      headers: {
-        'access-control-allow-origin': '*',
-        'cache-control': 'no-store',
-      },
-      body: JSON.stringify({
-        value: [{
-          cotacaoCompra: QA_FX - 0.0006,
-          cotacaoVenda: QA_FX,
-          dataHoraCotacao: '2026-08-11T13:10:00.000-03:00',
-        }],
-      }),
-    });
-  });
-
   await page.goto(`${BASE}login.html`, { waitUntil: 'networkidle', timeout: 30000 });
   await page.locator('#username').fill('admin');
   await page.locator('#password').fill('admin');
@@ -159,7 +138,28 @@ try {
   }
 
   // 3) Atualização do câmbio sob demanda deve usar a venda PTAX, preservar o
-  // buffer comercial e recalcular o orçamento imediatamente.
+  // buffer comercial e recalcular o orçamento imediatamente. O fetch é isolado
+  // dentro do navegador para testar o fluxo do botão sem depender da rede externa.
+  await page.evaluate((qaFx) => {
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const url = String(input?.url || input || '');
+      if (url.startsWith('https://olinda.bcb.gov.br/')) {
+        return new Response(JSON.stringify({
+          value: [{
+            cotacaoCompra: qaFx - 0.0006,
+            cotacaoVenda: qaFx,
+            dataHoraCotacao: '2026-08-11T13:10:00.000-03:00',
+          }],
+        }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return nativeFetch(input, init);
+    };
+  }, QA_FX);
+
   await liveFxButton.click();
   await page.waitForFunction((expected) => {
     const project = currentProject();
@@ -199,7 +199,6 @@ try {
   const secondIdentity = await page.evaluate(() => {
     const project = currentProject();
     const item = project.items[1];
-    // Força a resolução pelo próprio motor, sem depender do evento visual.
     conutwayV3ItemTaxConfig(project, item);
     const taxes = project.detailedCostEngine?.itemTaxes?.[item.id] || {};
     return { ctCode: item.ctCode, descriptionPt: item.descriptionPt, ncm: item.ncm, source: taxes._source, iiRate: taxes.iiRate, icmsRate: taxes.icmsRate };
