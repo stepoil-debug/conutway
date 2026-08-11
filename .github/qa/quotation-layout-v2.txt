@@ -1,0 +1,1 @@
+QA-only marker for quotation layout v2. No production behavior changes.
