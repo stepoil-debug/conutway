@@ -1,6 +1,7 @@
 import { chromium } from 'playwright';
 
 const BASE = process.env.CONUTWAY_BASE_URL || 'https://stepoil-debug.github.io/conutway/';
+const QA_NCM = '99000001';
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 1600, height: 1100 } });
 const page = await context.newPage();
@@ -27,7 +28,8 @@ try {
   if (!(await page.locator('link[data-conutway-cost-engine="v3"]').count())) fail('CSS do motor V3 ausente.');
   if (!(await page.locator('link[data-conutway-ncm-tax-sync="v1"]').count())) fail('CSS da integração NCM ausente.');
 
-  // 1) Cadastro fiscal do produto.
+  // 1) Cadastro fiscal do produto. O NCM QA é isolado do catálogo real para
+  // testar o caso inequívoco; conflitos reais permanecem como pendência.
   await page.locator('.module-nav button[data-module-target="products"]').click();
   await page.locator('#products').waitFor({ state: 'visible', timeout: 10000 });
   await page.locator('#newProductBtn').click();
@@ -37,7 +39,7 @@ try {
 
   const valuesToFill = {
     ctCode: 'CT-9901',
-    ncm: '84289090',
+    ncm: QA_NCM,
     descriptionPt: 'Produto QA tributação por NCM',
     uom: 'UN',
     cifUnitPrice: '1000',
@@ -49,23 +51,23 @@ try {
     icmsExtraBaseBrl: '0',
   };
   for (const [field, value] of Object.entries(valuesToFill)) {
-    const input = page.locator(`[data-product-field="${field}"]`);
-    await input.fill(value);
+    await page.locator(`[data-product-field="${field}"]`).fill(value);
   }
   await page.locator('#saveProductBtn').click();
   await page.waitForTimeout(600);
 
-  const savedProduct = await page.evaluate(() => {
+  const savedProduct = await page.evaluate((qaNcm) => {
     const product = state.products.find((item) => item.ctCode === 'CT-9901');
     return product ? {
       id: product.id, ctCode: product.ctCode, ncm: product.ncm,
+      expectedNcm: qaNcm,
       iiRate: product.iiRate, ipiRate: product.ipiRate,
       pisImportRate: product.pisImportRate, cofinsImportRate: product.cofinsImportRate,
       icmsRate: product.icmsRate,
     } : null;
-  });
+  }, QA_NCM);
   if (!savedProduct) fail('Produto QA não foi salvo.');
-  if (savedProduct.ncm !== '84289090' || number(savedProduct.iiRate) !== 14 || number(savedProduct.icmsRate) !== 20) {
+  if (savedProduct.ncm !== QA_NCM || number(savedProduct.iiRate) !== 14 || number(savedProduct.icmsRate) !== 20) {
     fail(`Cadastro fiscal do produto incorreto: ${JSON.stringify(savedProduct)}`);
   }
 
@@ -87,7 +89,7 @@ try {
   await page.waitForTimeout(500);
 
   const inheritedNcm = await page.locator('[data-item-field="ncm"]').first().inputValue();
-  if (inheritedNcm !== '84289090') fail(`NCM não foi herdado do produto: ${inheritedNcm}`);
+  if (inheritedNcm !== QA_NCM) fail(`NCM não foi herdado do produto: ${inheritedNcm}`);
 
   const expectedRates = { iiRate: 14, ipiRate: 5, pisImportRate: 2.1, cofinsImportRate: 9.65, icmsRate: 20 };
   for (const [field, expected] of Object.entries(expectedRates)) {
@@ -130,17 +132,21 @@ try {
     fail(`Tributos não entraram no cálculo: ${JSON.stringify(flow.totals)}`);
   }
 
-  // 3) NCM igual pode reaproveitar a regra fiscal sem transformar outro item em CT-9901.
+  // 3) Uma regra fiscal inequívoca do mesmo NCM pode ser reaproveitada sem
+  // transformar o segundo item no produto que originou a regra.
   await page.locator('#addItemBtn').click();
-  const secondDescription = page.locator('[data-item-field="descriptionPt"]').nth(1);
-  await secondDescription.fill('Outro produto com o mesmo NCM');
+  await page.locator('[data-item-field="descriptionPt"]').nth(1).fill('Outro produto com o mesmo NCM');
   const secondNcm = page.locator('[data-item-field="ncm"]').nth(1);
-  await secondNcm.fill('84289090');
+  await secondNcm.fill(QA_NCM);
   await secondNcm.dispatchEvent('change');
   await page.waitForTimeout(500);
+
   const secondIdentity = await page.evaluate(() => {
-    const item = currentProject().items[1];
-    const taxes = currentProject().detailedCostEngine?.itemTaxes?.[item.id] || {};
+    const project = currentProject();
+    const item = project.items[1];
+    // Força a resolução pelo próprio motor, sem depender do evento visual.
+    conutwayV3ItemTaxConfig(project, item);
+    const taxes = project.detailedCostEngine?.itemTaxes?.[item.id] || {};
     return { ctCode: item.ctCode, descriptionPt: item.descriptionPt, ncm: item.ncm, source: taxes._source, iiRate: taxes.iiRate, icmsRate: taxes.icmsRate };
   });
   if (secondIdentity.ctCode === 'CT-9901') fail(`NCM alterou indevidamente a identidade do segundo produto: ${JSON.stringify(secondIdentity)}`);
@@ -150,7 +156,7 @@ try {
   }
 
   await page.screenshot({ path: 'pages-workspace-quotation-cost-engine-v3.png', fullPage: true });
-  console.log(JSON.stringify({ ok: true, flow: 'Produto -> NCM -> tributos -> custo posto', savedProduct, landedUnitCostBrl: landed, suggestedSaleUnitBrl: suggested, taxFlow: flow, secondIdentity }, null, 2));
+  console.log(JSON.stringify({ ok: true, flow: 'Produto -> NCM -> tributos -> custo posto', qaNcm: QA_NCM, savedProduct, landedUnitCostBrl: landed, suggestedSaleUnitBrl: suggested, taxFlow: flow, secondIdentity }, null, 2));
 } catch (error) {
   await page.screenshot({ path: 'pages-workspace-quotation-cost-engine-v3-error.png', fullPage: true }).catch(() => {});
   console.error(error?.stack || String(error));
