@@ -83,42 +83,110 @@
   box-shadow: 0 0 0 3px rgba(71,167,221,.12);
 }
 
+/* Serviços portuários e adicionais de risco */
 #projects .v3-switch-columns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  padding: 0 20px 16px;
+  gap: 16px;
+  align-items: start;
+  padding: 0 20px 18px;
   border-bottom: 1px solid #e5edf2;
 }
 #projects .v3-switch-columns section {
-  border: 1px solid #e2eaf0;
-  border-radius: 12px;
-  padding: 13px;
-  background: #fbfdfe;
+  min-width: 0;
+  border: 1px solid #dce6ed;
+  border-radius: 14px;
+  padding: 16px;
+  background: #f8fbfd;
+  box-sizing: border-box;
 }
-#projects .v3-switch-columns h4 { margin-bottom: 9px; font-size: 12px; }
+#projects .v3-switch-columns h4 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #203642;
+}
 #projects .v3-check {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  padding: 7px 0;
-  border-top: 1px solid #edf2f5;
+  display: grid !important;
+  grid-template-columns: 22px minmax(0, 1fr) !important;
+  gap: 11px !important;
+  align-items: center !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 52px;
+  margin: 0 0 8px !important;
+  padding: 10px 12px !important;
+  box-sizing: border-box;
+  border: 1px solid #e1e9ef !important;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
 }
-#projects .v3-check:first-of-type { border-top: 0; }
-#projects .v3-check input { margin-top: 2px; }
-#projects .v3-check strong { display: block; font-size: 11px; color: #203642; }
-#projects .v3-check small { display: block; margin-top: 2px; color: #7b8c97; font-size: 10px; }
+#projects .v3-check:last-of-type { margin-bottom: 0 !important; }
+#projects .v3-check:hover {
+  border-color: #bcd3e1 !important;
+  background: #fcfeff;
+}
+#projects .v3-check:has(input:focus-visible) {
+  border-color: #47a7dd !important;
+  box-shadow: 0 0 0 3px rgba(71,167,221,.10);
+}
+#projects .v3-check input[type="checkbox"] {
+  appearance: auto;
+  -webkit-appearance: checkbox;
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  min-height: 18px !important;
+  max-width: 18px !important;
+  max-height: 18px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  justify-self: center;
+  align-self: center;
+  flex: 0 0 18px !important;
+  accent-color: #0b7bdc;
+  box-shadow: none !important;
+}
+#projects .v3-check > span {
+  display: block !important;
+  min-width: 0;
+  width: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  text-align: left !important;
+}
+#projects .v3-check strong {
+  display: block;
+  margin: 0;
+  color: #203642;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.3;
+  text-align: left;
+}
+#projects .v3-check small {
+  display: block;
+  margin: 3px 0 0;
+  color: #71838f;
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 1.35;
+  text-align: left;
+}
 
 #projects .v3-tax-section,
 #projects .v3-memory-section { padding: 16px 20px 0; }
 #projects .v3-section-title {
   display: flex;
   gap: 16px;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 10px;
 }
 #projects .v3-section-title > span {
+  flex: 0 0 auto;
   white-space: nowrap;
   border-radius: 999px;
   padding: 5px 9px;
