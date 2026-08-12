@@ -9,6 +9,7 @@ import sys
 
 MARKER = "CONUTWAY QUOTATION LAYOUT V2"
 LINK_MARKER = 'data-conutway-quotation-layout="v2"'
+ITEMS_ORDER_MARKER = 'data-pricing-order="items-first-v1"'
 
 
 def inject_link(html: str) -> str:
@@ -18,6 +19,45 @@ def inject_link(html: str) -> str:
     if "</head>" not in html.lower():
         raise RuntimeError("Fechamento </head> não encontrado para injetar layout de Cotações.")
     return re.sub(r"</head>", f"  {link}\n</head>", html, count=1, flags=re.IGNORECASE)
+
+
+def reorder_pricing_items(html: str) -> str:
+    """Coloca os itens logo após Câmbio e perfil e antes dos custos/tributos.
+
+    O bundle legado trazia a ordem Câmbio -> custos -> itens. Como NCM e produto
+    são a origem da tributação, o fluxo visual correto é Câmbio -> itens -> custos.
+    Fazemos a mudança no HTML do build para preservar eventos e IDs originais.
+    """
+    if ITEMS_ORDER_MARKER in html:
+        return html
+
+    item_pattern = re.compile(
+        r'(?P<block>\s*<section class="form-section form-section-items">.*?'
+        r'<div class="appendix-editor" id="appendixEditor" hidden></div>\s*</section>)',
+        flags=re.DOTALL,
+    )
+    match = item_pattern.search(html)
+    if not match:
+        raise RuntimeError("Bloco Itens da cotação não encontrado para reorganização.")
+
+    block = match.group("block")
+    block = block.replace(
+        '<section class="form-section form-section-items">',
+        '<section class="form-section form-section-items" data-pricing-order="items-first-v1">',
+        1,
+    )
+    without_items = html[: match.start()] + html[match.end() :]
+
+    pricing_panel = '<section class="project-pricing-panel" id="projectPricingPanel"></section>'
+    panel_index = without_items.find(pricing_panel)
+    if panel_index < 0:
+        raise RuntimeError("Painel de parâmetros de custo não encontrado para reorganização.")
+
+    # Mantém a indentação do HTML e posiciona os itens imediatamente antes dos
+    # parâmetros comerciais. O motor detalhado é injetado depois desse painel,
+    # portanto também permanece abaixo dos itens.
+    insertion = block.rstrip() + "\n\n                "
+    return without_items[:panel_index] + insertion + without_items[panel_index:]
 
 
 def main() -> int:
@@ -43,6 +83,7 @@ def main() -> int:
     for path in (index, fallback):
         html = path.read_text(encoding="utf-8")
         html = inject_link(html)
+        html = reorder_pricing_items(html)
         path.write_text(html, encoding="utf-8")
 
     final_index = index.read_text(encoding="utf-8")
@@ -53,6 +94,8 @@ def main() -> int:
         "pricing": "#projects .estimated-cost-profile-bar" in final_css,
         "items": "#projects .quotation-items-editor" in final_css,
         "summary": "#projects #projectPricingSummary" in final_css,
+        "items-order-marker": ITEMS_ORDER_MARKER in final_index,
+        "items-before-costs": final_index.find(ITEMS_ORDER_MARKER) < final_index.find('id="projectPricingPanel"'),
     }
     failed = [name for name, ok in checks.items() if not ok]
     if failed:
@@ -69,8 +112,16 @@ def main() -> int:
         raise RuntimeError("Motor de custos V3 não foi injetado no app.js.")
     if 'data-conutway-cost-engine="v3"' not in final_index:
         raise RuntimeError("CSS do motor de custos V3 não foi injetado no index.html.")
+    if not (final_index.find(ITEMS_ORDER_MARKER) < final_index.find('id="projectPricingPanel"')):
+        raise RuntimeError("Itens da cotação voltaram para depois dos custos no build final.")
 
-    print("QUOTATION_LAYOUT_OK", f"css_bytes={target.stat().st_size}", "version=v2", "cost_engine=v3")
+    print(
+        "QUOTATION_LAYOUT_OK",
+        f"css_bytes={target.stat().st_size}",
+        "version=v2",
+        "cost_engine=v3",
+        "pricing_order=exchange-items-costs",
+    )
     return 0
 
 

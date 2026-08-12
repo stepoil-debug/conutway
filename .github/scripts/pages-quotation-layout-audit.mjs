@@ -86,6 +86,45 @@ async function assertLiveFxLayout(label) {
   return metrics;
 }
 
+async function assertPricingFlowOrder() {
+  const items = page.locator('.form-section-items[data-pricing-order="items-first-v1"]');
+  await items.waitFor({ state: 'visible', timeout: 10000 });
+  const pricingPanel = page.locator('#projectPricingPanel');
+  await pricingPanel.waitFor({ state: 'visible', timeout: 10000 });
+  const detailPanel = page.locator('#quotationDetailedCostPanel');
+  await detailPanel.waitFor({ state: 'visible', timeout: 10000 });
+
+  const metrics = await page.evaluate(() => {
+    const exchange = document.querySelector('.pricing-exchange-group');
+    const items = document.querySelector('.form-section-items[data-pricing-order="items-first-v1"]');
+    const costs = document.querySelector('#projectPricingPanel');
+    const detail = document.querySelector('#quotationDetailedCostPanel');
+    const box = (node) => {
+      const r = node?.getBoundingClientRect();
+      return r ? { top: r.top, bottom: r.bottom, height: r.height } : null;
+    };
+    return {
+      exchange: box(exchange),
+      items: box(items),
+      costs: box(costs),
+      detail: box(detail),
+      domItemsBeforeCosts: Boolean(items && costs && (items.compareDocumentPosition(costs) & Node.DOCUMENT_POSITION_FOLLOWING)),
+      domCostsBeforeDetail: Boolean(costs && detail && (costs.compareDocumentPosition(detail) & Node.DOCUMENT_POSITION_FOLLOWING)),
+    };
+  });
+
+  if (!metrics.exchange || !metrics.items || !metrics.costs || !metrics.detail) {
+    fail(`Fluxo de Precificação incompleto: ${JSON.stringify(metrics)}`);
+  }
+  if (!metrics.domItemsBeforeCosts || !metrics.domCostsBeforeDetail) {
+    fail(`Ordem DOM incorreta. Esperado Câmbio -> Itens -> Custos -> Memória: ${JSON.stringify(metrics)}`);
+  }
+  if (metrics.items.top < metrics.exchange.top || metrics.costs.top < metrics.items.top || metrics.detail.top < metrics.costs.top) {
+    fail(`Ordem visual incorreta. Esperado Câmbio -> Itens -> Custos -> Memória: ${JSON.stringify(metrics)}`);
+  }
+  return metrics;
+}
+
 async function openPricing() {
   await page.locator('.module-nav button[data-module-target="projects"]').click();
   await page.locator('#projects').waitFor({ state: 'visible', timeout: 10000 });
@@ -120,6 +159,7 @@ try {
     header: await assertChildrenInside('#projects .erp-workspace-header', 'Cabeçalho 1600px'),
     exchange: await assertChildrenInside('#quoteCostProfileBar', 'Câmbio/perfil 1600px'),
     liveFx: await assertLiveFxLayout('PTAX 1600px'),
+    pricingFlow: await assertPricingFlowOrder(),
   };
 
   const itemsWrap = page.locator('#projects .items-table-wrap');
@@ -156,6 +196,7 @@ try {
     header: await assertChildrenInside('#projects .erp-workspace-header', 'Cabeçalho 1366px'),
     exchange: await assertChildrenInside('#quoteCostProfileBar', 'Câmbio/perfil 1366px'),
     liveFx: await assertLiveFxLayout('PTAX 1366px'),
+    pricingFlow: await assertPricingFlowOrder(),
   };
 
   const tableScroll = await itemsWrap.evaluate((node) => ({ clientWidth: node.clientWidth, scrollWidth: node.scrollWidth, overflowX: getComputedStyle(node).overflowX }));
@@ -168,6 +209,7 @@ try {
   console.log(JSON.stringify({
     ok: true,
     layout: 'quotation-v2',
+    pricingOrder: 'exchange-items-costs-taxes',
     viewport1600: result1600,
     viewport1366: result1366,
     tableScroll,
