@@ -1,39 +1,66 @@
 /* CONUTWAY QUOTATION LIVE FX V1 */
 
-#projects .live-fx-control {
-  display: flex;
+/*
+ * O controle PTAX é filho do grid principal de câmbio/perfil.
+ * Ele deve sempre ocupar uma linha própria e compacta, nunca uma célula isolada
+ * do grid. Isso mantém o fluxo normal da página e evita que custos/produtos
+ * pareçam ficar por baixo do controle.
+ */
+#projects #quoteCostProfileBar > .live-fx-control,
+#projects .estimated-cost-profile-bar > .live-fx-control {
+  grid-column: 1 / -1 !important;
+  grid-row: auto !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  min-height: 52px;
+  margin: 0 !important;
+  padding: 9px 12px;
+  position: static !important;
+  inset: auto !important;
+  z-index: auto !important;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  min-width: 310px;
-  padding: 10px 12px;
+  gap: 14px;
   border: 1px solid rgba(15, 23, 42, .12);
   border-radius: 12px;
-  background: rgba(255, 255, 255, .82);
+  background: rgba(255, 255, 255, .88);
+  box-shadow: none;
+  overflow: hidden;
 }
 
 #projects .live-fx-values {
-  display: grid;
-  gap: 2px;
   min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px 14px;
+  flex-wrap: wrap;
+  line-height: 1.15;
 }
 
 #projects .live-fx-label {
-  font-size: 11px;
-  font-weight: 700;
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: .05em;
   color: #64748b;
 }
 
 #projects .live-fx-values strong {
+  flex: 0 0 auto;
   font-size: 18px;
-  line-height: 1.1;
+  line-height: 1;
   color: #0f172a;
 }
 
 #projects .live-fx-values small {
   display: block;
+  min-width: 0;
+  font-size: 11px;
+  line-height: 1.2;
   color: #64748b;
   white-space: nowrap;
   overflow: hidden;
@@ -41,28 +68,66 @@
 }
 
 #projects .live-fx-source {
-  max-width: 300px;
+  flex: 1 1 280px;
+  max-width: none;
 }
 
-#projects .live-fx-refresh {
+#projects .live-fx-refresh,
+#projects button.live-fx-refresh {
+  grid-column: 2;
   flex: 0 0 auto;
+  width: auto !important;
+  min-width: 178px;
+  max-width: 240px;
+  min-height: 36px;
+  height: 36px;
+  margin: 0 !important;
+  padding: 0 15px !important;
+  position: static !important;
   white-space: nowrap;
+  align-self: center;
 }
 
 @media (max-width: 1180px) {
-  #projects .live-fx-control {
-    width: 100%;
-    min-width: 0;
+  #projects #quoteCostProfileBar > .live-fx-control,
+  #projects .estimated-cost-profile-bar > .live-fx-control {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  #projects .live-fx-values {
+    gap: 7px 12px;
+  }
+
+  #projects .live-fx-source {
+    flex-basis: 220px;
   }
 }
 
-@media (max-width: 680px) {
-  #projects .live-fx-control {
-    align-items: stretch;
-    flex-direction: column;
+@media (max-width: 760px) {
+  #projects #quoteCostProfileBar > .live-fx-control,
+  #projects .estimated-cost-profile-bar > .live-fx-control {
+    grid-template-columns: 1fr;
+    gap: 9px;
+    padding: 10px;
   }
 
-  #projects .live-fx-refresh {
+  #projects .live-fx-values {
+    display: grid;
+    grid-template-columns: auto auto;
+    justify-content: start;
+  }
+
+  #projects .live-fx-source {
+    grid-column: 1 / -1;
     width: 100%;
+  }
+
+  #projects .live-fx-refresh,
+  #projects button.live-fx-refresh {
+    grid-column: 1;
+    width: 100% !important;
+    min-width: 0;
+    max-width: none;
   }
 }

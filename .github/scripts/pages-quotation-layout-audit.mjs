@@ -40,6 +40,52 @@ async function assertChildrenInside(selector, label) {
   return result;
 }
 
+async function assertLiveFxLayout(label) {
+  const control = page.locator('#quoteCostProfileBar > .live-fx-control, #quoteCostProfileBar .live-fx-control').first();
+  await control.waitFor({ state: 'visible', timeout: 10000 });
+  const metrics = await control.evaluate((node) => {
+    const bar = node.closest('#quoteCostProfileBar') || node.parentElement;
+    const values = node.querySelector('.live-fx-values');
+    const button = node.querySelector('.live-fx-refresh');
+    const nr = node.getBoundingClientRect();
+    const br = bar?.getBoundingClientRect();
+    const vr = values?.getBoundingClientRect();
+    const rr = button?.getBoundingClientRect();
+    const style = getComputedStyle(node);
+    const buttonStyle = button ? getComputedStyle(button) : null;
+    return {
+      control: { left: nr.left, right: nr.right, top: nr.top, bottom: nr.bottom, width: nr.width, height: nr.height },
+      bar: br ? { left: br.left, right: br.right, top: br.top, bottom: br.bottom, width: br.width, height: br.height } : null,
+      values: vr ? { left: vr.left, right: vr.right, top: vr.top, bottom: vr.bottom, width: vr.width, height: vr.height } : null,
+      button: rr ? { left: rr.left, right: rr.right, top: rr.top, bottom: rr.bottom, width: rr.width, height: rr.height } : null,
+      position: style.position,
+      gridColumnStart: style.gridColumnStart,
+      gridColumnEnd: style.gridColumnEnd,
+      buttonPosition: buttonStyle?.position || '',
+    };
+  });
+
+  if (!metrics.bar || !metrics.values || !metrics.button) fail(`${label}: estrutura PTAX incompleta: ${JSON.stringify(metrics)}`);
+  if (metrics.control.left < metrics.bar.left - 2 || metrics.control.right > metrics.bar.right + 2) {
+    fail(`${label}: controle PTAX ultrapassa o bloco de câmbio: ${JSON.stringify(metrics)}`);
+  }
+  if (metrics.control.bottom > metrics.bar.bottom + 2) {
+    fail(`${label}: controle PTAX ficou fora do fluxo vertical do bloco: ${JSON.stringify(metrics)}`);
+  }
+  if (metrics.position === 'absolute' || metrics.position === 'fixed' || metrics.buttonPosition === 'absolute' || metrics.buttonPosition === 'fixed') {
+    fail(`${label}: PTAX não pode usar posicionamento sobreposto: ${JSON.stringify(metrics)}`);
+  }
+  if (metrics.control.height > 86) {
+    fail(`${label}: faixa PTAX ficou alta demais (${metrics.control.height}px), empurrando produtos para baixo.`);
+  }
+  const horizontal = metrics.button.left >= metrics.values.right - 2;
+  const vertical = metrics.button.top >= metrics.values.bottom - 2;
+  if (!horizontal && !vertical) {
+    fail(`${label}: botão PTAX sobrepõe os valores: ${JSON.stringify(metrics)}`);
+  }
+  return metrics;
+}
+
 async function openPricing() {
   await page.locator('.module-nav button[data-module-target="projects"]').click();
   await page.locator('#projects').waitFor({ state: 'visible', timeout: 10000 });
@@ -73,6 +119,7 @@ try {
     page: await assertNoPageOverflow('1600px'),
     header: await assertChildrenInside('#projects .erp-workspace-header', 'Cabeçalho 1600px'),
     exchange: await assertChildrenInside('#quoteCostProfileBar', 'Câmbio/perfil 1600px'),
+    liveFx: await assertLiveFxLayout('PTAX 1600px'),
   };
 
   const itemsWrap = page.locator('#projects .items-table-wrap');
@@ -108,6 +155,7 @@ try {
     page: await assertNoPageOverflow('1366px'),
     header: await assertChildrenInside('#projects .erp-workspace-header', 'Cabeçalho 1366px'),
     exchange: await assertChildrenInside('#quoteCostProfileBar', 'Câmbio/perfil 1366px'),
+    liveFx: await assertLiveFxLayout('PTAX 1366px'),
   };
 
   const tableScroll = await itemsWrap.evaluate((node) => ({ clientWidth: node.clientWidth, scrollWidth: node.scrollWidth, overflowX: getComputedStyle(node).overflowX }));
