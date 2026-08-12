@@ -1,0 +1,79 @@
+/* CONUTWAY QUOTATION ALIGNMENT V3
+   Padroniza larguras e alturas dos cards da Precificação sem alterar cálculos. */
+
+@media screen {
+  /* Perfil de custo: dois blocos simétricos em desktop. */
+  #projects .pricing-rate-groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  #projects .pricing-rate-group {
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #projects .pricing-rate-group > .pricing-rate-group-header {
+    flex: 0 0 auto;
+  }
+
+  #projects .pricing-rate-group .project-cost-grid {
+    flex: 1 1 auto;
+    width: 100%;
+    align-content: start;
+    grid-auto-rows: minmax(78px, auto);
+  }
+
+  #projects .project-cost-control {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  /* Resumo financeiro: cinco caixas exatamente proporcionais e com a mesma altura. */
+  #projects #projectPricingSummary {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
+    align-items: stretch;
+  }
+
+  #projects .project-pricing-summary-card {
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    min-height: 64px;
+    box-sizing: border-box;
+    display: grid;
+    align-content: center;
+  }
+
+  @media (max-width: 1280px) {
+    #projects #projectPricingSummary {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  /* Só empilha o Perfil de custo quando a largura deixa de comportar duas caixas úteis. */
+  @media (max-width: 1180px) {
+    #projects .pricing-rate-groups {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 980px) {
+    #projects #projectPricingSummary {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 620px) {
+    #projects #projectPricingSummary {
+      grid-template-columns: 1fr;
+    }
+  }
+}
