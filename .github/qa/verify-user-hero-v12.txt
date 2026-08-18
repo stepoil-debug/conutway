@@ -1,0 +1,1 @@
+QA temporario para validar o login atual com a imagem original enviada pelo usuario.
